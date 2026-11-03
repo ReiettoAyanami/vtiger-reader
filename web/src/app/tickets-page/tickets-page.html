@@ -144,7 +144,7 @@
           >
             @for (hit of customerHits(); track hit.id) {
               <mat-option [value]="hit">
-                <span class="hit-name">{{ hit.name }}</span>
+                <div>{{ hit.name }}</div>
                 <span class="hit-detail"
                   >{{ hit.email
                   }}{{ hit.organization?.name ? ' · ' + hit.organization?.name : '' }}</span

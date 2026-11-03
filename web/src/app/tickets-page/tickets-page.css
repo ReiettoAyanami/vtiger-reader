@@ -9,7 +9,12 @@
   padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
+/* The column scrolls by itself only when the lists are more than the window holds: nothing in it may
+   stick out sideways (lenzi, 2026-11-03: scroll bars appeared on focus). Material's icon buttons
+   have a 48 px touch area around their 40 px, which overflowed the column by 4 px; the 2 px of
+   padding keep the focus ring inside. */
 .lists {
+  --mat-icon-button-touch-target-display: none;
   position: sticky;
   top: 80px;
   align-self: start;
@@ -17,7 +22,10 @@
   flex-direction: column;
   gap: 2px;
   max-height: calc(100dvh - 104px);
+  padding: 2px;
+  overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .lists-head {
@@ -147,15 +155,6 @@
   margin-right: 8px;
   border-radius: 50%;
   vertical-align: middle;
-}
-
-.chosen {
-  display: flex;
-  align-items: center;
-}
-
-.hit-name {
-  display: block;
 }
 
 .hit-detail {
