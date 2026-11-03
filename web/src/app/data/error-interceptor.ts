@@ -16,7 +16,13 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) =>
 
 function toError(error: unknown): unknown {
   if (error instanceof TimeoutError) {
-    return { status: null, code: null, title: 'Server not reachable', detail: 'The server did not answer.', fieldErrors: [] } satisfies ApiError;
+    return {
+      status: null,
+      code: null,
+      title: 'Server not reachable',
+      detail: 'The server did not answer.',
+      fieldErrors: [],
+    } satisfies ApiError;
   }
   return error instanceof HttpErrorResponse ? toApiError(error) : error;
 }
@@ -32,13 +38,31 @@ interface ProblemDetails {
 function toApiError(response: HttpErrorResponse): ApiError {
   // Status 0: no response at all (API or network down).
   if (response.status === 0) {
-    return { status: null, code: null, title: 'Server not reachable', detail: 'The server could not be reached.', fieldErrors: [] };
+    return {
+      status: null,
+      code: null,
+      title: 'Server not reachable',
+      detail: 'The server could not be reached.',
+      fieldErrors: [],
+    };
   }
   const body: unknown = response.error;
   if (isProblemDetails(body)) {
-    return { status: response.status, code: codeOf(body.type), title: body.title, detail: body.detail, fieldErrors: body.errors };
+    return {
+      status: response.status,
+      code: codeOf(body.type),
+      title: body.title,
+      detail: body.detail,
+      fieldErrors: body.errors,
+    };
   }
-  return { status: response.status, code: null, title: response.statusText, detail: '', fieldErrors: [] };
+  return {
+    status: response.status,
+    code: null,
+    title: response.statusText,
+    detail: '',
+    fieldErrors: [],
+  };
 }
 
 /** `urn:vtiger-reader:problem:not-found` → `not-found`; `about:blank` or none → null. */

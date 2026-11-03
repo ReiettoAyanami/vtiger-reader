@@ -68,7 +68,7 @@ async function companyCrm(): Promise<FakeCrm> {
     // The mail that opened the ticket, again, as its first comment.
     { id: '30x1', commentcontent: '<p>La stampante non stampa.</p>', createdtime: '2026-11-03 10:00:01', customer: '12x1', creator: '19x1', is_private: '0', imageattachmentids: '15x1,15x2' },
     { id: '30x3', commentcontent: '<p>Riavviata, ora va?</p>', createdtime: '2026-11-03 11:00:00', customer: '', creator: '19x5', is_private: '1', imageattachmentids: '' },
-    { id: '30x2', commentcontent: '<p>Ci guardo io.</p>', createdtime: '2026-11-03 10:30:00', customer: '', creator: '19x9', is_private: '0', imageattachmentids: '15x3' },
+    { id: '30x2', commentcontent: '<p>Ci guardo io.</p><p>Grazie,<br>Giacomo</p>', createdtime: '2026-11-03 10:30:00', customer: '', creator: '19x9', is_private: '0', imageattachmentids: '15x3' },
   ]);
   crm.related.set('17x1:Documents', [{ id: '7x1', notes_title: 'Log', filename: 'log.pdf', imageattachmentids: '15x9' }]);
   const logo = await sharp({ create: { width: 300, height: 100, channels: 3, background: '#3355aa' } }).png().toBuffer();
@@ -83,66 +83,68 @@ async function companyCrm(): Promise<FakeCrm> {
 
 let api: Api;
 let crm: FakeCrm;
+/** The tester's default lists, by name. */
+let lists: Record<string, number>;
 beforeEach(async () => {
   crm = await companyCrm();
   api = await makeApi({ crm });
   expect((await api.put('/api/crm/link', { url: crm.url, ...MARIO })).status).toBe(200);
+  lists = Object.fromEntries(((await api.get('/api/lists')).body as Array<{ id: number; name: string }>).map((l) => [l.name, l.id]));
 });
+const ALL = () => lists['All tickets'];
 afterEach(async () => {
   // Read-only: nothing but reading operations ever reached the CRM.
   expect(crm.calls.filter((c) => !(READ_OPERATIONS as readonly string[]).includes(c.operation))).toEqual([]);
   await api.app.close();
 });
 
-describe('/api/tickets/folders', () => {
-  it("the user's, each group's queue, all, and one per category and support group; the statuses", async () => {
-    const res = await api.get('/api/tickets/folders');
+describe('/api/tickets/options', () => {
+  it("what a list can ask for, from the user's CRM: statuses, groups, the other picklists", async () => {
+    const res = await api.get('/api/tickets/options');
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body.statuses).toEqual([
-      { value: 'Open', label: 'Aperto', closed: false },
-      { value: 'In Progress', label: 'In lavorazione', closed: false },
-      { value: 'Closed', label: 'Chiuso', closed: true },
-      { value: 'Annullato', label: 'Annullato', closed: true },
-    ]);
-    expect(res.body.folders).toEqual([
-      { id: 'mine-open', label: 'My open tickets', section: 'Mine' },
-      { id: 'mine-closed', label: 'My closed tickets', section: 'Mine' },
-      { id: 'group:20x1', label: 'Primo livello', section: 'Group queues' },
-      { id: 'group:20x2', label: 'Secondo livello', section: 'Group queues' },
-      { id: 'open', label: 'All open tickets', section: 'All' },
-      { id: 'all', label: 'All tickets', section: 'All' },
-      { id: 'pick:ticketcategories:Hardware', label: 'Hardware', section: 'Categoria' },
-      { id: 'pick:ticketcategories:Software', label: 'Software', section: 'Categoria' },
-      { id: 'pick:gruppo_di_supporto:Alpha', label: 'Alpha', section: 'Gruppo di supporto' },
-      { id: 'pick:gruppo_di_supporto:Beta', label: 'Beta', section: 'Gruppo di supporto' },
-    ]);
-  });
-
-  it('their counts, apart (one CRM count each): open tickets, except "closed" and "all"', async () => {
-    expect((await api.get('/api/tickets/folders/counts')).body).toEqual({
-      'mine-open': 1,
-      'mine-closed': 1,
-      'group:20x1': 1,
-      'group:20x2': 0,
-      open: 3,
-      all: 4,
-      'pick:ticketcategories:Hardware': 3,
-      'pick:ticketcategories:Software': 0,
-      'pick:gruppo_di_supporto:Alpha': 2,
-      'pick:gruppo_di_supporto:Beta': 1,
+    expect(res.body).toEqual({
+      statuses: [
+        { value: 'Open', label: 'Aperto', closed: false },
+        { value: 'In Progress', label: 'In lavorazione', closed: false },
+        { value: 'Closed', label: 'Chiuso', closed: true },
+        { value: 'Annullato', label: 'Annullato', closed: true },
+      ],
+      groups: [
+        { id: '20x1', name: 'Primo livello' },
+        { id: '20x2', name: 'Secondo livello' },
+      ],
+      picklists: [
+        { field: 'ticketpriorities', label: 'Priorità', values: [{ value: 'Low', label: 'Bassa' }, { value: 'High', label: 'Alta' }] },
+        { field: 'ticketcategories', label: 'Categoria', values: [{ value: 'Hardware', label: 'Hardware' }, { value: 'Software', label: 'Software' }] },
+        { field: 'gruppo_di_supporto', label: 'Gruppo di supporto', values: [{ value: 'Alpha', label: 'Alpha' }, { value: 'Beta', label: 'Beta' }] },
+      ],
     });
   });
 
   it('without a linked CRM account: 409, link it in Settings', async () => {
     await api.del('/api/crm/link');
-    expectProblem(await api.get('/api/tickets/folders'), 409, 'crm-not-linked');
+    expectProblem(await api.get('/api/tickets/options'), 409, 'crm-not-linked');
     expectProblem(await api.get('/api/tickets'), 409, 'crm-not-linked');
   });
 });
 
+describe('/api/lists/counts', () => {
+  it("how many tickets each of the user's lists has", async () => {
+    const counts = (await api.get('/api/lists/counts')).body as Record<string, number>;
+    expect(Object.fromEntries(Object.entries(lists).map(([name, id]) => [name, counts[String(id)]]))).toEqual({
+      'My tickets': 2,
+      'My open tickets': 1,
+      'My closed tickets': 1,
+      Unassigned: 1,
+      'All open tickets': 3,
+      'All tickets': 4,
+    });
+  });
+});
+
 describe('/api/tickets', () => {
-  it('my open tickets by default: newest first, names read from the CRM, times in UTC', async () => {
-    const res = await api.get('/api/tickets');
+  it("a list's first page: newest first, names read from the CRM, times in UTC", async () => {
+    const res = await api.get(`/api/tickets?list=${lists['My open tickets']}`);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body).toEqual({
       page: 0,
@@ -154,6 +156,8 @@ describe('/api/tickets', () => {
           number: 'TK-2026-000001',
           title: 'Stampante ferma',
           status: 'Aperto',
+          // its place among the CRM's statuses: its colour on the page
+          statusIndex: 0,
           priority: 'Alta',
           category: 'Hardware',
           createdAt: '2026-11-03T10:00:00Z',
@@ -170,6 +174,10 @@ describe('/api/tickets', () => {
     expect(crm.calls.filter((c) => c.operation === 'retrieve')).toEqual([]);
   });
 
+  it("no list asked: the user's first (My tickets)", async () => {
+    expect((await api.get('/api/tickets')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x1', '17x3']);
+  });
+
   it('/api/names: the names behind ids, those the user may read', async () => {
     expect((await api.get('/api/names?ids=11x1,11x2,11x99')).body).toEqual({ '11x1': 'Acme Srl', '11x2': 'Beta Spa' });
     expectProblem(await api.get(`/api/names?ids=${encodeURIComponent("11x1,x' OR 1")}`), 400);
@@ -177,7 +185,7 @@ describe('/api/tickets', () => {
   });
 
   it('owners: me, a group by name, a colleague (their names are not readable)', async () => {
-    const res = await api.get('/api/tickets?folder=all');
+    const res = await api.get(`/api/tickets?list=${ALL()}`);
     expect(res.body.items.map((t: { id: string; owner: unknown }) => [t.id, t.owner])).toEqual([
       ['17x2', { kind: 'group', name: 'Primo livello' }],
       ['17x1', { kind: 'me' }],
@@ -188,31 +196,38 @@ describe('/api/tickets', () => {
   });
 
   it('search: words in the title, or a number', async () => {
-    expect((await api.get('/api/tickets?folder=all&q=stampante')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x1', '17x3']);
-    expect((await api.get('/api/tickets?folder=all&q=TK-2026-000002')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x2']);
+    expect((await api.get(`/api/tickets?list=${ALL()}&q=stampante`)).body.items.map((t: { id: string }) => t.id)).toEqual(['17x1', '17x3']);
+    expect((await api.get(`/api/tickets?list=${ALL()}&q=TK-2026-000002`)).body.items.map((t: { id: string }) => t.id)).toEqual(['17x2']);
     // what the user types cannot break the query
-    expect((await api.get(`/api/tickets?folder=all&q=${encodeURIComponent("x' OR '1'='1")}`)).body.total).toBe(0);
+    expect((await api.get(`/api/tickets?list=${ALL()}&q=${encodeURIComponent("x' OR '1'='1")}`)).body.total).toBe(0);
   });
 
   it('filters: status, contact, organization; sort and pages', async () => {
-    expect((await api.get('/api/tickets?folder=all&status=Closed')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x3']);
-    expect((await api.get('/api/tickets?folder=all&contact=12x2')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x2']);
-    expect((await api.get('/api/tickets?folder=all&organization=11x2')).body.total).toBe(2);
-    const page = await api.get('/api/tickets?folder=all&sort=modified&dir=asc&size=2&page=1');
+    expect((await api.get(`/api/tickets?list=${ALL()}&status=Closed`)).body.items.map((t: { id: string }) => t.id)).toEqual(['17x3']);
+    expect((await api.get(`/api/tickets?list=${ALL()}&contact=12x2`)).body.items.map((t: { id: string }) => t.id)).toEqual(['17x2']);
+    expect((await api.get(`/api/tickets?list=${ALL()}&organization=11x2`)).body.total).toBe(2);
+    const page = await api.get(`/api/tickets?list=${ALL()}&sort=modified&dir=asc&size=2&page=1`);
     expect(page.body).toMatchObject({ page: 1, size: 2, total: 4 });
     expect(page.body.items.map((t: { id: string }) => t.id)).toEqual(['17x2', '17x1']);
   });
 
-  it('folders by group, category and support group', async () => {
-    expect((await api.get('/api/tickets?folder=group:20x1')).body.items.map((t: { id: string }) => t.id)).toEqual(['17x2']);
-    expect((await api.get(`/api/tickets?folder=${encodeURIComponent('pick:ticketcategories:Software')}`)).body.total).toBe(0);
-    expect((await api.get(`/api/tickets?folder=${encodeURIComponent('pick:gruppo_di_supporto:Alpha')}`)).body.total).toBe(2);
+  it("the user's own lists: a group's queue, a category, a support group, one status", async () => {
+    const make = async (filter: object) => (await api.post('/api/lists', { name: 'x', filter })).body.id as number;
+    const ids = async (list: number) => (await api.get(`/api/tickets?list=${list}`)).body.items.map((t: { id: string }) => t.id);
+    expect(await ids(await make({ owner: 'group', group: '20x1', status: 'open' }))).toEqual(['17x2']);
+    expect(await ids(await make({ owner: 'anyone', status: 'any', picks: { ticketcategories: 'Software' } }))).toEqual(['17x3']);
+    expect(await ids(await make({ owner: 'anyone', status: 'open', picks: { gruppo_di_supporto: 'Alpha' } }))).toEqual(['17x1', '17x4']);
+    expect(await ids(await make({ owner: 'anyone', status: 'one', statusValue: 'In Progress' }))).toEqual(['17x2']);
   });
 
-  it('refuses a folder, status or id that is not the CRM’s', async () => {
-    expectProblem(await api.get('/api/tickets?folder=nope'), 400);
-    expectProblem(await api.get('/api/tickets?folder=group:20x99'), 400);
-    expectProblem(await api.get(`/api/tickets?folder=${encodeURIComponent("pick:ticketstatus:Open")}`), 400);
+  it('a list naming what the CRM no longer has: 409, edit the list; its count is none', async () => {
+    const gone = (await api.post('/api/lists', { name: 'Old group', filter: { owner: 'group', group: '20x99', status: 'open' } })).body.id;
+    expectProblem(await api.get(`/api/tickets?list=${gone}`), 409, 'list-outdated');
+    expect((await api.get('/api/lists/counts')).body[String(gone)]).toBeNull();
+  });
+
+  it('refuses a list, status or id that is not the user’s or the CRM’s', async () => {
+    expectProblem(await api.get('/api/tickets?list=999999'), 404, 'not-found');
     expectProblem(await api.get('/api/tickets?status=Gone'), 400);
     expectProblem(await api.get(`/api/tickets?contact=${encodeURIComponent("12x1' OR 1")}`), 400);
     expectProblem(await api.get('/api/tickets?size=500'), 400);
@@ -242,10 +257,11 @@ describe('/api/tickets/:id', () => {
     ]);
     expect(t.comments.map((c: { id: string; author: unknown; private: boolean; sameAsDescription: boolean; files: string[]; at: string }) => [c.id, c.author, c.private, c.sameAsDescription, c.files, c.at])).toEqual([
       ['30x1', { kind: 'customer', id: '12x1', name: 'Mario Bianchi' }, false, true, ['15x1', '15x2'], '2026-11-03T10:00:01Z'],
-      ['30x2', { kind: 'colleague' }, false, false, ['15x3'], '2026-11-03T10:30:00Z'],
+      // a colleague's name, as signed (read now, not kept: the CRM does not give users' names)
+      ['30x2', { kind: 'colleague', signedAs: 'Giacomo' }, false, false, ['15x3'], '2026-11-03T10:30:00Z'],
       ['30x3', { kind: 'me' }, true, false, [], '2026-11-03T11:00:00Z'],
     ]);
-    expect(t.comments[1].body).toEqual({ text: 'Ci guardo io.', cut: false });
+    expect(t.comments[1].body.text).toBe('Ci guardo io.\n\nGrazie,\nGiacomo');
     expect(t.documents).toEqual([{ id: '7x1', title: 'Log', fileName: 'log.pdf', files: ['15x9'] }]);
   });
 

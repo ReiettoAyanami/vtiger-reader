@@ -1,0 +1,66 @@
+<h2 mat-dialog-title>{{ data.list ? 'Edit the list' : 'New list' }}</h2>
+
+<mat-dialog-content>
+  <form class="form" [formGroup]="form" (ngSubmit)="save()" id="list-form">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" maxlength="80" autocomplete="off" cdkFocusInitial />
+      @if (nameError(); as message) {
+        <mat-hint class="field-error">{{ message }}</mat-hint>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Whose tickets</mat-label>
+      <mat-select formControlName="owner">
+        <mat-option value="me">Mine</mat-option>
+        <mat-option value="anyone">Anyone's</mat-option>
+        <mat-option value="groups">Unassigned (any group)</mat-option>
+        @if (data.options.groups.length > 0) {
+          <mat-optgroup label="One group">
+            @for (group of data.options.groups; track group.id) {
+              <mat-option [value]="'group:' + group.id">{{ group.name }}</mat-option>
+            }
+          </mat-optgroup>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status">
+        <mat-option value="open">Open (still to handle)</mat-option>
+        <mat-option value="closed">Closed</mat-option>
+        <mat-option value="any">Any</mat-option>
+        <mat-optgroup label="One status">
+          @for (status of data.options.statuses; track status.value) {
+            <mat-option [value]="'one:' + status.value">{{ status.label }}</mat-option>
+          }
+        </mat-optgroup>
+      </mat-select>
+    </mat-form-field>
+
+    <div formGroupName="picks" class="picks">
+      @for (picklist of data.options.picklists; track picklist.field) {
+        <mat-form-field appearance="outline">
+          <mat-label>{{ picklist.label }}</mat-label>
+          <mat-select [formControlName]="picklist.field">
+            <mat-option value="">Any</mat-option>
+            @for (value of picklist.values; track value.value) {
+              <mat-option [value]="value.value">{{ value.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" mat-dialog-close>Cancel</button>
+  <button mat-flat-button type="submit" form="list-form" [disabled]="saving()">Save</button>
+</mat-dialog-actions>

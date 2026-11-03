@@ -15,8 +15,10 @@ export interface TicketSchema {
   /** The statuses of a ticket still to handle, and of a finished one. */
   openStatuses: string[];
   closedStatuses: string[];
-  /** Picklists the folders are made of: the category, and the support groups when the CRM has them. */
-  folderFields: CrmField[];
+  /** The status picklist. */
+  statusField: CrmField | undefined;
+  /** The other picklists, which a list can filter by: category, support group, priority... */
+  picklists: CrmField[];
   has(field: string): boolean;
 }
 
@@ -36,17 +38,17 @@ function byNameOrLabel(module: CrmModule, name: string, label: RegExp): string |
 
 export function ticketSchema(module: CrmModule): TicketSchema {
   const names = new Set(module.fields.map((f) => f.name));
-  const statuses = module.fields.find((f) => f.name === 'ticketstatus')?.picklist.map((p) => p.value) ?? [];
-  const folderFields = module.fields.filter(
-    (f) => f.type === 'picklist' && f.picklist.length > 0 && (f.name === 'ticketcategories' || /\b(gruppo|group|team)\b/i.test(f.label)),
-  );
+  const statusField = module.fields.find((f) => f.name === 'ticketstatus');
+  const statuses = statusField?.picklist.map((p) => p.value) ?? [];
+  const picklists = module.fields.filter((f) => f.type === 'picklist' && f.name !== 'ticketstatus' && f.picklist.length > 0);
   return {
     module,
     description: byNameOrLabel(module, 'description', /^(descrizione|description)\b/i),
     solution: byNameOrLabel(module, 'solution', /^(soluzione|solution)\b/i),
     openStatuses: statuses.filter((s) => !isClosedStatus(s)),
     closedStatuses: statuses.filter((s) => isClosedStatus(s)),
-    folderFields,
+    statusField,
+    picklists,
     has: (field) => names.has(field),
   };
 }

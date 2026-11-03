@@ -41,7 +41,9 @@ export class AuthApi {
 
   /** POST /api/auth/sign-in/username: the session cookie comes with the answer. */
   signIn(username: string, password: string): Observable<void> {
-    return this.http.post<unknown>('/api/auth/sign-in/username', { username, password }).pipe(map(() => undefined));
+    return this.http
+      .post<unknown>('/api/auth/sign-in/username', { username, password })
+      .pipe(map(() => undefined));
   }
 
   /** POST /api/auth/sign-out: the session ends here and its cookie goes. */
@@ -51,11 +53,15 @@ export class AuthApi {
 
   /** POST /api/auth/revoke-other-sessions: every other session of the user ends; this one stays. */
   revokeOtherSessions(): Observable<void> {
-    return this.http.post<unknown>('/api/auth/revoke-other-sessions', {}).pipe(map(() => undefined));
+    return this.http
+      .post<unknown>('/api/auth/revoke-other-sessions', {})
+      .pipe(map(() => undefined));
   }
 
   /** POST /api/auth/admin/stop-impersonating: the administrator's own session comes back. */
   stopImpersonating(): Observable<void> {
-    return this.http.post<unknown>('/api/auth/admin/stop-impersonating', {}).pipe(map(() => undefined));
+    return this.http
+      .post<unknown>('/api/auth/admin/stop-impersonating', {})
+      .pipe(map(() => undefined));
   }
 }

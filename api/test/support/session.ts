@@ -29,12 +29,11 @@ export function forgetTestUsers(): void {
 
 async function ensure(app: FastifyInstance, user: TestUser): Promise<void> {
   if (cookies.has(user.username)) return;
-  const id = await app.identity.createUser({
-    username: user.username,
-    email: `${user.username}@test.invalid`,
-    password: user.password,
-    role: user.role,
-  });
+  // As the admin page creates them: with their starting state (settings, default lists).
+  const id = await app.accounts.createUser(
+    { username: user.username, email: `${user.username}@test.invalid`, password: user.password, role: user.role },
+    null,
+  );
   const res = await signIn(app, user.username, user.password);
   if (res.status !== 200) throw new Error(`the sign-in of ${user.username} failed: ${res.status} ${JSON.stringify(res.body)}`);
   ids.set(user.username, id);

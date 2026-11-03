@@ -10,7 +10,9 @@ describe('AccountApi', () => {
   let backend: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     api = TestBed.inject(AccountApi);
     backend = TestBed.inject(HttpTestingController);
   });
@@ -20,7 +22,10 @@ describe('AccountApi', () => {
   it('changePassword posts the current and the new password', async () => {
     const done = firstValueFrom(api.changePassword('Lenzi-pass-0001', 'Lenzi-pass-0002'));
     const req = backend.expectOne({ method: 'POST', url: '/api/account/password' });
-    expect(req.request.body).toEqual({ currentPassword: 'Lenzi-pass-0001', newPassword: 'Lenzi-pass-0002' });
+    expect(req.request.body).toEqual({
+      currentPassword: 'Lenzi-pass-0001',
+      newPassword: 'Lenzi-pass-0002',
+    });
     req.flush(null, { status: 204, statusText: 'No Content' });
 
     await expect(done).resolves.toBeUndefined();

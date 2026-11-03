@@ -153,3 +153,23 @@ export function cidNames(html: string): string[] {
   const names = [...(html ?? '').matchAll(/src\s*=\s*["']cid:([^"']+)["']/gi)].map((m) => (m[1] ?? '').replace(/@.*$/, '').trim());
   return [...new Set(names.filter(Boolean))];
 }
+
+/** Closing words a signature's name follows ("Grazie, / Giacomo"). */
+const THANKS = /\b(grazie|saluti|cordialmente|cordiali saluti|buona (giornata|serata)|buon lavoro|a presto|thanks|regards|best)\b/i;
+
+/**
+ * The name a colleague signs a comment with ("Grazie, / Giacomo"), as cerini-ia reads it: one or two
+ * capitalized words on one of the last lines, after closing words. Read from the comment each time,
+ * never kept: the CRM does not let a user's key read the other users' names (plan 2.1). '' if none.
+ */
+export function signerOf(html: string): string {
+  const lines = htmlToText(html ?? '')
+    .split('\n')
+    .map((line) => line.trim().replace(/^[\s,.\-–]+|[\s,.\-–]+$/g, ''))
+    .filter(Boolean);
+  for (let k = lines.length - 1; k > Math.max(0, lines.length - 4); k--) {
+    const line = lines[k] ?? '';
+    if (/^[A-ZÀ-Ý][a-zà-ÿ']+(?: [A-ZÀ-Ý][a-zà-ÿ']+)?$/.test(line) && THANKS.test(lines.slice(Math.max(0, k - 2), k).join(' '))) return line;
+  }
+  return '';
+}

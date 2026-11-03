@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { badRequest } from '../../shared/errors.js';
+import type { ListsService } from '../lists/service.js';
 import { MAX_NAMES, type ListQuery, type TicketsService } from './service.js';
 import {
   customersSchema,
@@ -26,12 +27,12 @@ function disposition(kind: 'inline' | 'attachment', name: string): string {
 }
 
 /** The tickets of the user's own CRM: read-only, no route writes to the CRM (plan 3.8). */
-export function ticketRoutes(app: FastifyInstance, deps: { tickets: TicketsService }): void {
-  const { tickets } = deps;
+export function ticketRoutes(app: FastifyInstance, deps: { tickets: TicketsService; lists: ListsService }): void {
+  const { tickets, lists } = deps;
 
-  app.get('/api/tickets/folders', async (req) => tickets.foldersAndStatuses(req.owner));
+  app.get('/api/tickets/options', async (req) => tickets.options(req.owner));
 
-  app.get('/api/tickets/folders/counts', async (req) => tickets.folderCounts(req.owner));
+  app.get('/api/lists/counts', async (req) => tickets.listCounts(req.owner, lists));
 
   // The names behind a list's ids (organizations: plan 3), read after the list is shown.
   app.get<{ Querystring: { ids: string } }>('/api/names', { schema: namesSchema }, async (req) => {

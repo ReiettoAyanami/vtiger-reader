@@ -11,6 +11,8 @@ export class AccountApi {
 
   /** POST /api/account/password: 204; this session stays, the user's other ones close. */
   changePassword(currentPassword: string, newPassword: string): Observable<void> {
-    return this.http.post<void>('/api/account/password', { currentPassword, newPassword }).pipe(map(() => undefined));
+    return this.http
+      .post<void>('/api/account/password', { currentPassword, newPassword })
+      .pipe(map(() => undefined));
   }
 }

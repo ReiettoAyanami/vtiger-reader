@@ -12,6 +12,7 @@ import { ApiError } from '../data/api-error';
 import { Attachment, Comment, whoLabel } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
 import { Session } from '../session/session';
+import { statusColor } from '../ui/status-color';
 import { WhenPipe } from '../ui/when';
 import { FilesView } from './files-view/files-view';
 import { MailView } from './mail-view/mail-view';
@@ -59,6 +60,7 @@ export class TicketPage {
 
   protected readonly actions = WRITE_ACTIONS;
   protected readonly whoLabel = whoLabel;
+  protected readonly statusColor = statusColor;
 
   protected readonly id = toSignal(this.route.paramMap.pipe(map((p) => p.get('id') ?? '')), {
     requireSync: true,

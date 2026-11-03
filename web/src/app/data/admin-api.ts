@@ -33,11 +33,15 @@ export class AdminApi {
 
   /** POST /api/admin/users/:id/impersonate: this browser's session becomes the user's. */
   impersonate(id: number): Observable<void> {
-    return this.http.post<unknown>(`/api/admin/users/${id}/impersonate`, {}).pipe(map(() => undefined));
+    return this.http
+      .post<unknown>(`/api/admin/users/${id}/impersonate`, {})
+      .pipe(map(() => undefined));
   }
 
   /** GET /api/admin/generated-password: a password that follows the rules, for the user form. */
   generatedPassword(): Observable<string> {
-    return this.http.get<{ password: string }>('/api/admin/generated-password').pipe(map((body) => body.password));
+    return this.http
+      .get<{ password: string }>('/api/admin/generated-password')
+      .pipe(map((body) => body.password));
   }
 }

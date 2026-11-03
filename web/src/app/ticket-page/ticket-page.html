@@ -26,7 +26,9 @@
     <section class="card header" aria-labelledby="ticket-title">
       <div class="line">
         <span class="number">{{ t.number }}</span>
-        <span class="status" [class.closed]="t.closed">{{ t.status }}</span>
+        <span class="status-chip" [style.background-color]="statusColor(t.statusIndex)">{{
+          t.status
+        }}</span>
         @if (t.priority) {
           <span class="priority">{{ t.priority }}</span>
         }

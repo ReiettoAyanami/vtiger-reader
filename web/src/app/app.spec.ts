@@ -14,6 +14,7 @@ import { AuthApi, type SessionUser } from './data/auth-api';
 import { CrmLinkApi } from './data/crm-link-api';
 import { SettingsApi } from './data/settings-api';
 import { TicketsApi } from './data/tickets-api';
+import { ListsApi } from './data/lists-api';
 import { VersionApi } from './data/version-api';
 
 const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null };
@@ -36,12 +37,12 @@ function pageData(getSettings: () => unknown) {
           }),
       },
     },
-    // the start page: the tickets
+    // the start page: the tickets, through the user's lists
+    { provide: ListsApi, useValue: { lists: () => of([]), counts: () => of({}) } },
     {
       provide: TicketsApi,
       useValue: {
-        folders: () => of({ folders: [], statuses: [] }),
-        folderCounts: () => of({}),
+        options: () => of({ statuses: [], groups: [], picklists: [] }),
         list: () => of({ items: [], page: 0, size: 50, total: 0 }),
         names: () => of({}),
         customers: () => of([]),

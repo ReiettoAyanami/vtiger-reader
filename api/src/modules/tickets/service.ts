@@ -1,16 +1,18 @@
 import type { Pool } from '../../db/pool.js';
-import { badRequest, notFound } from '../../shared/errors.js';
+import { badRequest, conflict, notFound } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import { Semaphore, type CrmClient } from '../crm/client.js';
 import { containsLiteral, idLiteral, isRecordId, literal, MAX_ROWS } from '../crm/vtql.js';
 import { CrmError } from '../crm/webservice.js';
 import { looksLikeLogo, markFor, opensInline, printOf, sniffType, type Mark } from './files.js';
-import { cleanMail, type CleanText } from './mail.js';
+import type { ListFilter } from '../lists/filter.js';
+import type { ListsService } from '../lists/service.js';
+import { cleanMail, signerOf, type CleanText } from './mail.js';
 import * as repo from './repository.js';
 import { ticketSchema, type TicketSchema } from './schema.js';
 
 /**
- * The tickets, read from the user's CRM at every request (plan 3): folders, the list, a ticket, its
+ * The tickets, read from the user's CRM at every request (plan 3): the user's lists, a page of one, a ticket, its
  * attachments. Nothing of the CRM is kept: the names behind the ids are read again each time, one
  * `retrieve` per distinct id, a few at once.
  */
@@ -20,8 +22,11 @@ export type Who =
   | { kind: 'me' }
   | { kind: 'group'; name: string }
   | { kind: 'customer'; id: string; name: string }
-  /** A user of the CRM other than the user: their names cannot be read with a user's key (plan 2.1). */
-  | { kind: 'colleague' }
+  /**
+   * A user of the CRM other than the user: their names cannot be read with a user's key (plan 2.1).
+   * On a comment, the name it is signed with, when there is one (read each time, never kept).
+   */
+  | { kind: 'colleague'; signedAs?: string }
   | { kind: 'nobody' };
 
 export interface Ref {
@@ -30,11 +35,12 @@ export interface Ref {
   name: string | null;
 }
 
-export interface Folder {
-  id: string;
-  label: string;
-  /** What the folders are grouped by, for the page: the user's, the groups', all, one per picklist. */
-  section: string;
+/** What a list's filter can name, from the user's CRM (the list editor's choices). */
+export interface TicketOptions {
+  statuses: Array<{ value: string; label: string; closed: boolean }>;
+  groups: Array<{ id: string; name: string }>;
+  /** The ticket's other picklists: category, support group, priority... */
+  picklists: Array<{ field: string; label: string; values: Array<{ value: string; label: string }> }>;
 }
 
 export interface TicketRow {
@@ -42,6 +48,8 @@ export interface TicketRow {
   number: string;
   title: string;
   status: string;
+  /** The status's place in the CRM's list of statuses (its colour on the page), -1 if not in it. */
+  statusIndex: number;
   priority: string;
   category: string;
   createdAt: string | null;
@@ -60,7 +68,8 @@ export interface TicketPage {
 }
 
 export interface ListQuery {
-  folder?: string;
+  /** One of the user's lists; their first when omitted. */
+  list?: number;
   q?: string;
   status?: string;
   contact?: string;
@@ -174,6 +183,7 @@ export class TicketsService {
   constructor(
     private readonly pool: Pool,
     private readonly crm: CrmClient,
+    private readonly lists: ListsService,
   ) {}
 
   private async schema(owner: Owner): Promise<TicketSchema> {
@@ -213,90 +223,89 @@ export class TicketsService {
     return { kind: 'colleague' };
   }
 
-  private openCondition(schema: TicketSchema): string | null {
-    return schema.openStatuses.length > 0 ? `ticketstatus IN (${schema.openStatuses.map(literal).join(', ')})` : null;
+  /**
+   * A list's conditions (joined with AND: the CRM's VTQL has no parentheses, plan 3). A value the
+   * CRM no longer has (a status, a group, a category renamed) is a 409: the list must be edited.
+   */
+  private listConditions(filter: ListFilter, schema: TicketSchema, me: string, groups: Map<string, string>): string[] {
+    const outdated = (what: string) => conflict('list-outdated', `This list asks for ${what}, which your CRM does not have: edit the list`);
+    const conditions: string[] = [];
+    switch (filter.owner) {
+      case 'me':
+        conditions.push(`assigned_user_id = ${idLiteral(me)}`);
+        break;
+      case 'groups':
+        // Assigned to a group, not to a person: "unassigned" (the CRM has no prefix match on owners).
+        conditions.push(`assigned_user_id IN (${(groups.size > 0 ? [...groups.keys()] : ['0x0']).map(idLiteral).join(', ')})`);
+        break;
+      case 'group':
+        if (!filter.group || !groups.has(filter.group)) throw outdated('a group');
+        conditions.push(`assigned_user_id = ${idLiteral(filter.group)}`);
+        break;
+    }
+    const statuses = (values: string[]) => (values.length > 0 ? `ticketstatus IN (${values.map(literal).join(', ')})` : null);
+    if (filter.status === 'open') {
+      const open = statuses(schema.openStatuses);
+      if (open) conditions.push(open);
+    } else if (filter.status === 'closed') {
+      const closed = statuses(schema.closedStatuses);
+      if (closed) conditions.push(closed);
+    } else if (filter.status === 'one') {
+      if (!filter.statusValue || !schema.statusField?.picklist.some((p) => p.value === filter.statusValue)) throw outdated(`the status "${filter.statusValue}"`);
+      conditions.push(`ticketstatus = ${literal(filter.statusValue)}`);
+    }
+    for (const [field, value] of Object.entries(filter.picks ?? {})) {
+      const picklist = schema.picklists.find((f) => f.name === field);
+      if (!picklist || !picklist.picklist.some((p) => p.value === value)) throw outdated(`"${value}"`);
+      conditions.push(`${picklist.name} = ${literal(value)}`);
+    }
+    return conditions;
   }
 
-  /** A folder's conditions (joined with AND: the CRM's VTQL has no parentheses, plan 3). */
-  private folderConditions(folder: string, schema: TicketSchema, me: string, groups: Map<string, string>): string[] | null {
-    const open = this.openCondition(schema);
-    const closed = schema.closedStatuses.length > 0 ? `ticketstatus IN (${schema.closedStatuses.map(literal).join(', ')})` : null;
-    const mine = `assigned_user_id = ${idLiteral(me)}`;
-    switch (folder) {
-      case 'mine-open':
-        return [mine, ...(open ? [open] : [])];
-      case 'mine-closed':
-        return [mine, ...(closed ? [closed] : [])];
-      case 'open':
-        return open ? [open] : [];
-      case 'all':
-        return [];
-    }
-    if (folder.startsWith('group:')) {
-      const id = folder.slice('group:'.length);
-      if (!groups.has(id)) return null;
-      return [`assigned_user_id = ${idLiteral(id)}`, ...(open ? [open] : [])];
-    }
-    if (folder.startsWith('pick:')) {
-      const [, field, ...rest] = folder.split(':');
-      const value = rest.join(':');
-      const picklist = schema.folderFields.find((f) => f.name === field);
-      if (!picklist || !picklist.picklist.some((p) => p.value === value)) return null;
-      return [`${picklist.name} = ${literal(value)}`, ...(open ? [open] : [])];
-    }
-    return null;
-  }
-
-  /** The folders (plan 3.1) and the statuses a ticket can have (the list's filter). */
-  async foldersAndStatuses(owner: Owner): Promise<{ folders: Folder[]; statuses: Array<{ value: string; label: string; closed: boolean }> }> {
-    const [folders, schema] = await Promise.all([this.folders(owner), this.schema(owner)]);
-    const statuses = schema.module.fields.find((f) => f.name === 'ticketstatus')?.picklist ?? [];
-    return { folders, statuses: statuses.map((s) => ({ ...s, closed: schema.closedStatuses.includes(s.value) })) };
-  }
-
-  /** The folders: the user's, each group's queue, everything, one per category and support group. */
-  async folders(owner: Owner): Promise<Folder[]> {
+  /** What a list's filter can name, from the user's CRM: its statuses, groups and picklists. */
+  async options(owner: Owner): Promise<TicketOptions> {
     const [schema, groups] = await Promise.all([this.schema(owner), this.groups(owner)]);
-    return [
-      { id: 'mine-open', label: 'My open tickets', section: 'Mine' },
-      { id: 'mine-closed', label: 'My closed tickets', section: 'Mine' },
-      ...[...groups].map(([id, name]) => ({ id: `group:${id}`, label: name, section: 'Group queues' })),
-      { id: 'open', label: 'All open tickets', section: 'All' },
-      { id: 'all', label: 'All tickets', section: 'All' },
-      ...schema.folderFields.flatMap((field) =>
-        field.picklist.map((p) => ({ id: `pick:${field.name}:${p.value}`, label: p.label, section: field.label.trim() })),
-      ),
-    ];
+    return {
+      statuses: (schema.statusField?.picklist ?? []).map((s) => ({ ...s, closed: schema.closedStatuses.includes(s.value) })),
+      groups: [...groups].map(([id, name]) => ({ id, name })),
+      picklists: schema.picklists.map((f) => ({ field: f.name, label: f.label.trim(), values: f.picklist })),
+    };
   }
 
-  /** How many tickets each folder has (one count each: ~1 s for two dozen folders, so apart from the folders). */
-  async folderCounts(owner: Owner): Promise<Record<string, number | null>> {
-    const [folders, schema, groups, me] = await Promise.all([this.folders(owner), this.schema(owner), this.groups(owner), this.crm.crmUserId(owner)]);
+  /** How many tickets each of the user's lists has (one CRM count each: apart from the lists, after the page). */
+  async listCounts(owner: Owner, lists: ListsService): Promise<Record<string, number | null>> {
+    const [all, schema, groups, me] = await Promise.all([lists.all(owner), this.schema(owner), this.groups(owner), this.crm.crmUserId(owner)]);
     const counting = new Semaphore(4);
     const counts = await Promise.all(
-      folders.map(async (folder) => {
-        const conditions = this.folderConditions(folder.id, schema, me, groups) ?? [];
+      all.map(async (list) => {
+        let conditions: string[];
+        try {
+          conditions = this.listConditions(list.filter, schema, me, groups);
+        } catch {
+          return [String(list.id), null] as const;
+        }
         const count = await counting
           .run(() => this.crm.count(owner, 'HelpDesk', conditions.join(' AND ') || undefined))
           .catch((error: unknown) => {
             if (error instanceof CrmError && (error.kind === 'failed' || error.kind === 'denied')) return null;
             throw error;
           });
-        return [folder.id, count] as const;
+        return [String(list.id), count] as const;
       }),
     );
     return Object.fromEntries(counts);
   }
 
-  /** A page of a folder (plan 3.2): search, status, customer, sort, paging; the total with it. */
+  /** A page of one of the user's lists (plan 3.2): search, status, customer, sort, paging; the total with it. */
   async list(owner: Owner, query: ListQuery): Promise<TicketPage> {
+    // The list first: one that is not the user's is not found, whatever the CRM would say.
+    const list = await this.lists.getOrFirst(owner, query.list);
     const [schema, groups, me] = await Promise.all([this.schema(owner), this.groups(owner), this.crm.crmUserId(owner)]);
-    const conditions = this.folderConditions(query.folder ?? 'mine-open', schema, me, groups);
-    if (!conditions) throw badRequest(`No folder "${query.folder}"`, 'folder');
+    const conditions = list ? this.listConditions(list.filter, schema, me, groups) : [];
     const q = (query.q ?? '').trim();
     if (q) conditions.push(`${looksLikeNumber(q) ? 'ticket_no' : 'ticket_title'} LIKE ${containsLiteral(q)}`);
     if (query.status) {
-      if (!schema.module.fields.find((f) => f.name === 'ticketstatus')?.picklist.some((p) => p.value === query.status)) {
+      if (!schema.statusField?.picklist.some((p) => p.value === query.status)) {
         throw badRequest(`No status "${query.status}"`, 'status');
       }
       conditions.push(`ticketstatus = ${literal(query.status)}`);
@@ -351,6 +360,7 @@ export class TicketsService {
       number: str(r.ticket_no),
       title: str(r.ticket_title),
       status: label('ticketstatus'),
+      statusIndex: schema.statusField?.picklist.findIndex((p) => p.value === status) ?? -1,
       priority: label('ticketpriorities'),
       category: label('ticketcategories'),
       createdAt: crmInstant(r.createdtime),
@@ -438,7 +448,10 @@ export class TicketsService {
           : creator === me
             ? { kind: 'me' }
             : creator
-              ? { kind: 'colleague' }
+              ? (() => {
+                  const signedAs = signerOf(html);
+                  return signedAs ? { kind: 'colleague' as const, signedAs } : { kind: 'colleague' as const };
+                })()
               : { kind: 'nobody' };
         return {
           id: str(c.id),

@@ -1,15 +1,15 @@
-/* The folders beside the list on a wide screen; on a phone, a menu above it. */
+/* The lists beside the tickets on a wide screen; on a phone, a menu above them. */
 .tickets {
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   gap: 24px;
   max-width: 1200px;
   margin: 0 auto;
   padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
-.folders {
+.lists {
   position: sticky;
   top: 80px;
   align-self: start;
@@ -20,49 +20,57 @@
   overflow-y: auto;
 }
 
-.section {
-  margin: 16px 12px 4px;
-  font: var(--mat-sys-label-medium);
+.lists-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 12px;
+}
+
+.lists-title {
+  margin: 0;
+  font: var(--mat-sys-title-small);
   color: var(--mat-sys-on-surface-variant);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
-.section:first-child {
-  margin-top: 0;
+.list {
+  display: flex;
+  align-items: center;
+  border-radius: 20px;
 }
 
-.folder {
+.list:hover {
+  background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+}
+
+.list.current {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.list-button {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 4px 0 12px;
   border: none;
   border-radius: 20px;
   background: transparent;
-  color: var(--mat-sys-on-surface);
+  color: inherit;
   font: var(--mat-sys-body-medium);
   text-align: left;
   cursor: pointer;
 }
 
-.folder:hover {
-  background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
-}
-
-.folder:focus-visible {
+.list-button:focus-visible {
   outline: 2px solid var(--mat-sys-primary);
   outline-offset: -2px;
 }
 
-.folder.current {
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
-}
-
-.folder-name {
+.list-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -75,39 +83,70 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
-.folder.current .count {
+.list.current .count {
   color: inherit;
 }
 
-.list {
+/* The ⋮ of a list shows on hover or focus, and always on the current one. */
+.list-more {
+  opacity: 0;
+}
+
+.list:hover .list-more,
+.list.current .list-more,
+.list-more:focus-visible,
+.list-more[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.main {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* Every field of the bar the same height (48 px, a search bar's), their texts on one line. */
 .filters {
+  --mat-form-field-container-height: 48px;
+  --mat-form-field-container-vertical-padding: 12px;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.folder-select {
+.list-picker {
   display: none;
   flex: 1 1 100%;
+  align-items: center;
+  gap: 4px;
 }
 
-.search {
+.list-picker mat-form-field {
+  flex: 1;
+}
+
+.filter-search {
   flex: 2 1 240px;
 }
 
-.status,
-.sort {
+.filter-status,
+.filter-sort {
   flex: 1 1 150px;
 }
 
-.customer {
+.filter-customer {
   flex: 1 1 200px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
 }
 
 .chosen {
@@ -178,17 +217,13 @@
   font: var(--mat-sys-label-medium);
 }
 
-.status {
+/* The status: its own colour (ui/status-color.ts), dark text on every one. */
+.status-chip {
+  flex: none;
   padding: 1px 10px;
   border-radius: 12px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
+  color: #1d1b20;
   font: var(--mat-sys-label-small);
-}
-
-.status.closed {
-  background: var(--mat-sys-surface-container-highest);
-  color: var(--mat-sys-on-surface-variant);
 }
 
 .priority {
@@ -259,6 +294,7 @@
 .retry {
   display: flex;
   justify-content: center;
+  gap: 8px;
 }
 
 .note {
@@ -266,18 +302,18 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
-/* A phone, or a narrow window: one column, the folders in the menu. */
+/* A phone, or a narrow window: one column, the lists in the menu. */
 @media (max-width: 899px) {
   .tickets {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .folders {
+  .lists {
     display: none;
   }
 
-  .folder-select {
-    display: block;
+  .list-picker {
+    display: flex;
   }
 
   .when {

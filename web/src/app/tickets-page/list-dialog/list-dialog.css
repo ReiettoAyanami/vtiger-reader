@@ -1,0 +1,27 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+/* The ticket's other picklists, two by two when there is room. */
+.picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  column-gap: 12px;
+}
+
+.field-error,
+.error {
+  color: var(--mat-sys-error);
+}
+
+.error {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+}

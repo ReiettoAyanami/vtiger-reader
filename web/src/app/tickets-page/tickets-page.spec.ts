@@ -1,27 +1,35 @@
 import { TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
 import { AuthApi, type SessionUser } from '../data/auth-api';
+import { TicketList } from '../data/lists';
+import { ListsApi } from '../data/lists-api';
 import { SettingsApi } from '../data/settings-api';
-import { FoldersAndStatuses, ListQuery, TicketPage, TicketRow } from '../data/tickets';
+import { ListQuery, TicketOptions, TicketPage, TicketRow } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
+import { HistoryDialogs } from '../history-dialogs';
 import { Session } from '../session/session';
+import { ListDialog } from './list-dialog/list-dialog';
 import { TicketsPage } from './tickets-page';
 
 const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'user', impersonatedBy: null };
 
-const FOLDERS: FoldersAndStatuses = {
-  folders: [
-    { id: 'mine-open', label: 'My open tickets', section: 'Mine' },
-    { id: 'group:20x1', label: 'Primo livello', section: 'Group queues' },
-    { id: 'all', label: 'All tickets', section: 'All' },
-  ],
+const LISTS: TicketList[] = [
+  { id: 11, name: 'My tickets', filter: { owner: 'me', status: 'any' } },
+  { id: 12, name: 'Unassigned', filter: { owner: 'groups', status: 'open' } },
+  { id: 13, name: 'All tickets', filter: { owner: 'anyone', status: 'any' } },
+];
+
+const OPTIONS: TicketOptions = {
   statuses: [
     { value: 'Open', label: 'Aperto', closed: false },
     { value: 'Closed', label: 'Chiuso', closed: true },
   ],
+  groups: [{ id: '20x1', name: 'Primo livello' }],
+  picklists: [],
 };
 
 function row(id: string, extra: Partial<TicketRow> = {}): TicketRow {
@@ -30,6 +38,7 @@ function row(id: string, extra: Partial<TicketRow> = {}): TicketRow {
     number: `TK-${id}`,
     title: `Ticket ${id}`,
     status: 'Aperto',
+    statusIndex: 0,
     priority: '',
     category: 'Hardware',
     createdAt: '2026-11-03T10:00:00Z',
@@ -46,12 +55,14 @@ describe('TicketsPage', () => {
   let asked: ListQuery[];
   let namesAsked: string[][];
   let countsAsked: number;
+  let dialogs: unknown[];
   let list: (query: ListQuery) => Observable<TicketPage>;
 
   async function render(url = '/lenzi') {
     asked = [];
     namesAsked = [];
     countsAsked = 0;
+    dialogs = [];
     TestBed.configureTestingModule({
       imports: [TicketsPage],
       providers: [
@@ -62,11 +73,22 @@ describe('TicketsPage', () => {
           provide: SettingsApi,
           useValue: { getSettings: () => of({ language: 'en', timezone: 'UTC' }) },
         },
+        { provide: MatSnackBar, useValue: { open: () => undefined } },
+        {
+          provide: HistoryDialogs,
+          useValue: { open: async (component: unknown) => (dialogs.push(component), undefined) },
+        },
+        {
+          provide: ListsApi,
+          useValue: {
+            lists: () => of(LISTS),
+            counts: () => (countsAsked++, of({ '11': 2, '12': 0, '13': 120 })),
+          },
+        },
         {
           provide: TicketsApi,
           useValue: {
-            folders: () => of(FOLDERS),
-            folderCounts: () => (countsAsked++, of({ 'mine-open': 2, 'group:20x1': 0, all: 120 })),
+            options: () => of(OPTIONS),
             list: (query: ListQuery) => (asked.push(query), list(query)),
             names: (ids: string[]) => (namesAsked.push(ids), of({ '11x1': 'Acme Srl' })),
             customers: () => of([]),
@@ -102,7 +124,13 @@ describe('TicketsPage', () => {
       of({
         items: [
           row('17x1'),
-          row('17x2', { owner: { kind: 'group', name: 'Primo livello' }, organization: null }),
+          row('17x2', {
+            status: 'Chiuso',
+            statusIndex: 1,
+            closed: true,
+            owner: { kind: 'group', name: 'Primo livello' },
+            organization: null,
+          }),
         ],
         page: query.page ?? 0,
         size: 50,
@@ -110,44 +138,49 @@ describe('TicketsPage', () => {
       });
   });
 
-  it('my open tickets first: the rows link to the ticket, with who and when', async () => {
+  it("the user's first list: the rows link to the ticket, with who, when, and the status in its colour", async () => {
     const page = await render();
-    expect(asked[0]).toMatchObject({
-      folder: 'mine-open',
-      page: 0,
-      size: 50,
-      sort: 'created',
-      dir: 'desc',
-    });
+    expect(asked[0]).toMatchObject({ page: 0, size: 50, sort: 'created', dir: 'desc' });
+    expect(asked[0]?.list).toBeUndefined();
     expect(page.text('.row .title')).toEqual(['Ticket 17x1', 'Ticket 17x2']);
     expect(page.element.querySelector('.row')?.getAttribute('href')).toBe('/lenzi/tickets/17x1');
     expect(page.text('.row .owner')).toEqual(['person Me', 'groups Primo livello']);
-    expect(page.text('.row .contact')).toEqual(['Mario Bianchi', 'Mario Bianchi']);
+    const chips = [...page.element.querySelectorAll<HTMLElement>('.row .status-chip')];
+    expect(chips.map((c) => c.textContent?.trim())).toEqual(['Aperto', 'Chiuso']);
+    expect(chips[0]!.style.backgroundColor).not.toBe(chips[1]!.style.backgroundColor);
   });
 
-  it("then the organizations' names, once, and the folders' counts", async () => {
+  it("the lists on the side, the first one current; then the organizations' names, once, and the counts", async () => {
     const page = await render();
     await page.settle();
+    expect(page.text('.list-name')).toEqual(['My tickets', 'Unassigned', 'All tickets']);
+    expect(page.element.querySelector('.list.current .list-name')?.textContent).toBe('My tickets');
     expect(namesAsked).toEqual([['11x1']]);
     expect(page.text('.row .organization')).toEqual(['Acme Srl']);
     expect(countsAsked).toBe(1);
-    expect(page.text('.folder-name')).toEqual(['My open tickets', 'Primo livello', 'All tickets']);
-    expect(page.text('.folder .count')).toEqual(['2', '120']);
-    expect(page.text('.section')).toEqual(['Mine', 'Group queues', 'All']);
+    expect(page.text('.list .count')).toEqual(['2', '120']);
   });
 
-  it('a folder, a status, the order: in the address, the list asked again', async () => {
+  it('another list: in the address, the tickets asked again', async () => {
     const page = await render();
-    page.element.querySelectorAll<HTMLButtonElement>('.folder')[1]!.click();
+    page.element.querySelectorAll<HTMLButtonElement>('.list-button')[2]!.click();
     await page.settle();
-    expect(TestBed.inject(Router).url).toBe('/lenzi?folder=group:20x1');
-    expect(asked.at(-1)).toMatchObject({ folder: 'group:20x1' });
+    expect(TestBed.inject(Router).url).toBe('/lenzi?list=13');
+    expect(asked.at(-1)).toMatchObject({ list: 13 });
+    expect(page.element.querySelector('.list.current .list-name')?.textContent).toBe('All tickets');
   });
 
-  it('from the address: folder, search, status, page', async () => {
-    await render('/lenzi?folder=all&q=vpn&status=Closed&page=2&sort=modified-desc');
+  it('+ opens the list editor', async () => {
+    const page = await render();
+    page.element.querySelector<HTMLButtonElement>('.add-list')!.click();
+    await page.settle();
+    expect(dialogs).toEqual([ListDialog]);
+  });
+
+  it('from the address: list, search, status, page, order', async () => {
+    await render('/lenzi?list=12&q=vpn&status=Closed&page=2&sort=modified-desc');
     expect(asked[0]).toMatchObject({
-      folder: 'all',
+      list: 12,
       q: 'vpn',
       status: 'Closed',
       page: 2,
@@ -165,7 +198,7 @@ describe('TicketsPage', () => {
     expect(TestBed.inject(Router).url).toBe('/lenzi?page=1');
   });
 
-  it('no CRM account linked: the card to Settings, instead of the list', async () => {
+  it('no CRM account linked: the card to Settings, instead of the tickets', async () => {
     list = () =>
       throwError(() => ({
         status: 409,
@@ -177,6 +210,22 @@ describe('TicketsPage', () => {
     const page = await render();
     expect(page.text('app-link-crm-card h1')).toEqual(['Link your CRM account']);
     expect(page.element.querySelector('.rows')).toBeNull();
+  });
+
+  it('a list the CRM no longer matches: said, with Edit the list', async () => {
+    list = () =>
+      throwError(() => ({
+        status: 409,
+        code: 'list-outdated',
+        title: 'Conflict',
+        detail: 'This list asks for a group, which your CRM does not have: edit the list',
+        fieldErrors: [],
+      }));
+    const page = await render();
+    expect(page.text('.message.error')).toEqual([
+      'This list asks for a group, which your CRM does not have: edit the list.',
+    ]);
+    expect(page.text('.retry button')).toEqual(['Edit the list', 'Try again']);
   });
 
   it('the CRM down: said, with Try again', async () => {

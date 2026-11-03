@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cidNames, cleanMail, decodeEntities, htmlToText } from '../../src/modules/tickets/mail.js';
+import { cidNames, cleanMail, decodeEntities, htmlToText, signerOf } from '../../src/modules/tickets/mail.js';
 
 describe('htmlToText', () => {
   it('blocks become lines, tags and styles go, entities become characters', () => {
@@ -73,5 +73,18 @@ describe('cidNames', () => {
   it('the file names behind cid: images, once each', () => {
     const html = `<img src="cid:image001.png@01DA0000.11223344"><img src='cid:image002.jpg'><img src="cid:image001.png@01DA0000.11223344"><img src="https://x/y.png">`;
     expect(cidNames(html)).toEqual(['image001.png', 'image002.jpg']);
+  });
+});
+
+describe('signerOf', () => {
+  it('the name after the closing words, on one of the last lines', () => {
+    expect(signerOf('<p>Ho riavviato il server.</p><p>Grazie,<br>Giacomo</p>')).toBe('Giacomo');
+    expect(signerOf('<p>Fatto.</p><p>Cordiali saluti</p><p>Anna Verdi</p>')).toBe('Anna Verdi');
+  });
+
+  it('nothing without closing words, or with a line that is not a name', () => {
+    expect(signerOf('<p>Ho riavviato il server.</p><p>Giacomo</p>')).toBe('');
+    expect(signerOf('<p>Grazie,</p><p>il problema è risolto</p>')).toBe('');
+    expect(signerOf('')).toBe('');
   });
 });

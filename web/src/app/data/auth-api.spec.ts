@@ -10,7 +10,9 @@ describe('AuthApi', () => {
   let backend: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     api = TestBed.inject(AuthApi);
     backend = TestBed.inject(HttpTestingController);
   });
@@ -21,7 +23,13 @@ describe('AuthApi', () => {
     const answer = firstValueFrom(api.getSession());
     backend.expectOne({ method: 'GET', url: '/api/auth/get-session' }).flush({
       session: { id: 9, userId: '2', expiresAt: '2026-11-02T09:00:00.000Z', impersonatedBy: '1' },
-      user: { id: '2', username: 'test-user', email: 'test@example.invalid', role: 'user', banned: false },
+      user: {
+        id: '2',
+        username: 'test-user',
+        email: 'test@example.invalid',
+        role: 'user',
+        banned: false,
+      },
     });
 
     expect(await answer).toEqual({ id: 2, username: 'test-user', role: 'user', impersonatedBy: 1 });
@@ -29,7 +37,12 @@ describe('AuthApi', () => {
 
   it('getSession: an administrator on their own; nobody is null', async () => {
     const admin = firstValueFrom(api.getSession());
-    backend.expectOne('/api/auth/get-session').flush({ session: { impersonatedBy: null }, user: { id: 1, username: 'lenzi', role: 'admin' } });
+    backend
+      .expectOne('/api/auth/get-session')
+      .flush({
+        session: { impersonatedBy: null },
+        user: { id: 1, username: 'lenzi', role: 'admin' },
+      });
     expect(await admin).toEqual({ id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null });
 
     const nobody = firstValueFrom(api.getSession());

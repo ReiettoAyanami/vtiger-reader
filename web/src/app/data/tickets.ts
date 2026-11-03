@@ -5,7 +5,8 @@ export type Who =
   | { kind: 'me' }
   | { kind: 'group'; name: string }
   | { kind: 'customer'; id: string; name: string }
-  | { kind: 'colleague' }
+  /** On a comment, the name it is signed with, when there is one (read each time, never kept). */
+  | { kind: 'colleague'; signedAs?: string }
   | { kind: 'nobody' };
 
 /** A record of the CRM: its id and name. A list's organizations come without a name (read later, /api/names). */
@@ -14,25 +15,24 @@ export interface Ref {
   name: string | null;
 }
 
-export interface Folder {
-  id: string;
-  label: string;
-  section: string;
-}
-
-/** GET /api/tickets/folders: the folders, and the statuses a ticket can have. */
-export interface FoldersAndStatuses {
-  folders: Folder[];
+/** GET /api/tickets/options: what a list can name, from the user's CRM. */
+export interface TicketOptions {
   statuses: Array<{ value: string; label: string; closed: boolean }>;
+  groups: Array<{ id: string; name: string }>;
+  picklists: Array<{
+    field: string;
+    label: string;
+    values: Array<{ value: string; label: string }>;
+  }>;
 }
-
-export type FolderCounts = Record<string, number | null>;
 
 export interface TicketRow {
   id: string;
   number: string;
   title: string;
   status: string;
+  /** The status's place among the CRM's statuses: its colour (ui/status-color.ts). */
+  statusIndex: number;
   priority: string;
   category: string;
   /** ISO instants (UTC). */
@@ -52,7 +52,8 @@ export interface TicketPage {
 }
 
 export interface ListQuery {
-  folder: string;
+  /** One of the user's lists; their first when omitted. */
+  list?: number;
   q?: string;
   status?: string;
   contact?: string;
@@ -123,7 +124,7 @@ export function whoLabel(who: Who): string {
     case 'customer':
       return who.name || 'The customer';
     case 'colleague':
-      return 'A colleague';
+      return who.signedAs ? `${who.signedAs} (colleague)` : 'A colleague';
     default:
       return 'Nobody';
   }

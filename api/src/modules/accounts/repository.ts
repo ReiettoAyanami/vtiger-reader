@@ -1,6 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import type { Queryable } from '../../db/pool.js';
 import type { Owner } from '../../shared/owner.js';
+import { insertDefaultLists } from '../lists/repository.js';
 
 /** Is there at least one administrator? (None: the first one is created at startup.) */
 export async function hasAdministrator(db: Queryable): Promise<boolean> {
@@ -13,13 +14,14 @@ export interface StartingSettings {
   timezone: string;
 }
 
-/** A new user's starting state: their settings row. */
+/** A new user's starting state: their settings row, and the default lists of tickets. */
 export async function insertStartingState(db: Queryable, owner: Owner, settings: StartingSettings): Promise<void> {
   await db.query('INSERT INTO user_settings (user_id, language, timezone) VALUES (?, ?, ?)', [
     owner.userId,
     settings.language,
     settings.timezone,
   ]);
+  await insertDefaultLists(db, owner);
 }
 
 /**
@@ -27,7 +29,7 @@ export async function insertStartingState(db: Queryable, owner: Owner, settings:
  * user_id (ai_provider, ai_task_model, ai_usage, push_subscription) joins this list:
  * the lifecycle test checks that no user_id row survives a deletion.
  */
-const USER_TABLES = ['user_settings', 'crm_link', 'image_mark', 'password_history', 'sign_in_failures', 'accounts'] as const;
+const USER_TABLES = ['user_settings', 'crm_link', 'image_mark', 'ticket_list', 'password_history', 'sign_in_failures', 'accounts'] as const;
 
 /**
  * Deletes a user and everything of theirs: preferences and sign-in mechanics only, since nothing

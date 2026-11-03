@@ -5,11 +5,10 @@ import { Observable } from 'rxjs';
 import {
   Attachment,
   CustomerHit,
-  FolderCounts,
-  FoldersAndStatuses,
   ListQuery,
   Mark,
   TicketDetail,
+  TicketOptions,
   TicketPage,
 } from './tickets';
 
@@ -20,17 +19,12 @@ import {
 export class TicketsApi {
   private readonly http = inject(HttpClient);
 
-  /** GET /api/tickets/folders: the folders and the statuses. */
-  folders(): Observable<FoldersAndStatuses> {
-    return this.http.get<FoldersAndStatuses>('/api/tickets/folders');
+  /** GET /api/tickets/options: the statuses, groups and picklists a list can name. */
+  options(): Observable<TicketOptions> {
+    return this.http.get<TicketOptions>('/api/tickets/options');
   }
 
-  /** GET /api/tickets/folders/counts: one CRM count per folder (~1 s), apart from the folders. */
-  folderCounts(): Observable<FolderCounts> {
-    return this.http.get<FolderCounts>('/api/tickets/folders/counts');
-  }
-
-  /** GET /api/tickets: a page of a folder. */
+  /** GET /api/tickets: a page of one of the user's lists. */
   list(query: ListQuery): Observable<TicketPage> {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) {

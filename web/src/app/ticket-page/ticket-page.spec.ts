@@ -20,6 +20,7 @@ const TICKET: TicketDetail = {
   number: 'TK-2026-000001',
   title: 'Stampante ferma',
   status: 'Aperto',
+  statusIndex: 0,
   priority: 'Alta',
   category: 'Hardware',
   createdAt: '2026-11-03T10:00:00Z',
@@ -50,7 +51,7 @@ const TICKET: TicketDetail = {
     {
       id: '30x2',
       at: '2026-11-03T10:30:00Z',
-      author: { kind: 'colleague' },
+      author: { kind: 'colleague', signedAs: 'Giacomo' },
       private: false,
       body: { text: 'Ci guardo io.', cut: false },
       html: '<p>Ci guardo io.</p>',
@@ -184,7 +185,12 @@ describe('TicketPage', () => {
     expect(page.text('.repeated')).toEqual([
       'unfold_more The request, as its first comment (10:00)',
     ]);
-    expect(page.text('.comment .author')).toEqual(['A colleague', 'Me']);
+    // a colleague, by the name they signed with
+    expect(page.text('.comment .author')).toEqual(['Giacomo (colleague)', 'Me']);
+    // the status in its own colour
+    expect(
+      page.element.querySelector<HTMLElement>('.header .status-chip')?.style.backgroundColor,
+    ).toContain('oklch');
     expect(page.text('.comment.private .tag')).toEqual(['Private']);
   });
 

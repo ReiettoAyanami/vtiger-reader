@@ -12,7 +12,10 @@ describe('errorInterceptor', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(withInterceptors([errorInterceptor])), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withInterceptors([errorInterceptor])),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpClient);
     backend = TestBed.inject(HttpTestingController);
@@ -58,7 +61,13 @@ describe('errorInterceptor', () => {
       backend.expectOne(url).flush(null, { status: 500, statusText: 'Internal Server Error' }),
     );
 
-    expect(error).toEqual({ status: 500, code: null, title: 'Internal Server Error', detail: '', fieldErrors: [] });
+    expect(error).toEqual({
+      status: 500,
+      code: null,
+      title: 'Internal Server Error',
+      detail: '',
+      fieldErrors: [],
+    });
   });
 
   it('turns a network failure into an ApiError with no status', async () => {
@@ -84,7 +93,13 @@ describe('errorInterceptor', () => {
       vi.advanceTimersByTime(14_999);
       expect(req.cancelled).toBe(false);
       vi.advanceTimersByTime(1);
-      expect(await result).toEqual({ status: null, code: null, title: 'Server not reachable', detail: 'The server did not answer.', fieldErrors: [] });
+      expect(await result).toEqual({
+        status: null,
+        code: null,
+        title: 'Server not reachable',
+        detail: 'The server did not answer.',
+        fieldErrors: [],
+      });
       expect(req.cancelled).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -93,10 +108,18 @@ describe('errorInterceptor', () => {
 });
 
 describe('isUnreachable', () => {
-  const error = (status: number | null): ApiError => ({ status, code: null, title: '', detail: '', fieldErrors: [] });
+  const error = (status: number | null): ApiError => ({
+    status,
+    code: null,
+    title: '',
+    detail: '',
+    fieldErrors: [],
+  });
 
   it('no answer, or the proxy of a stopped API; any other status is an answer', () => {
-    for (const status of [null, 502, 503, 504]) expect(isUnreachable(error(status)), String(status)).toBe(true);
-    for (const status of [400, 401, 404, 409, 422, 429, 500]) expect(isUnreachable(error(status)), String(status)).toBe(false);
+    for (const status of [null, 502, 503, 504])
+      expect(isUnreachable(error(status)), String(status)).toBe(true);
+    for (const status of [400, 401, 404, 409, 422, 429, 500])
+      expect(isUnreachable(error(status)), String(status)).toBe(false);
   });
 });

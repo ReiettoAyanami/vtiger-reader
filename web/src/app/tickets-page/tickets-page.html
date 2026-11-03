@@ -2,53 +2,107 @@
   <app-link-crm-card />
 } @else {
   <main class="tickets">
-    <!-- The folders: a column on a wide screen. -->
-    <nav class="folders" aria-label="Folders">
-      @for (section of sections(); track section.name) {
-        <h2 class="section">{{ section.name }}</h2>
-        @for (folder of section.folders; track folder.id) {
+    <!-- The user's own lists: a column on a wide screen. -->
+    <nav class="lists" aria-label="Lists">
+      <div class="lists-head">
+        <h2 class="lists-title">Lists</h2>
+        <button
+          mat-icon-button
+          type="button"
+          class="add-list"
+          aria-label="New list"
+          (click)="addList()"
+        >
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+      @for (list of listData(); track list.id; let first = $first; let last = $last) {
+        <div class="list" [class.current]="list.id === currentList()?.id">
           <button
             type="button"
-            class="folder"
-            [class.current]="folder.id === query().folder"
-            [attr.aria-current]="folder.id === query().folder ? 'page' : null"
-            (click)="chooseFolder(folder.id)"
+            class="list-button"
+            [attr.aria-current]="list.id === currentList()?.id ? 'page' : null"
+            (click)="chooseList(list.id)"
           >
-            <span class="folder-name">{{ folder.label }}</span>
-            @if (folderCount(folder); as count) {
+            <span class="list-name">{{ list.name }}</span>
+            @if (listCount(list); as count) {
               <span class="count">{{ count }}</span>
             }
           </button>
-        }
+          <button
+            mat-icon-button
+            type="button"
+            class="list-more"
+            [attr.aria-label]="'Actions for ' + list.name"
+            [matMenuTriggerFor]="listMenu"
+          >
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #listMenu="matMenu" xPosition="before">
+            <button mat-menu-item type="button" (click)="editList(list)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
+            <button mat-menu-item type="button" [disabled]="first" (click)="moveList(list, -1)">
+              <mat-icon>arrow_upward</mat-icon>
+              <span>Move up</span>
+            </button>
+            <button mat-menu-item type="button" [disabled]="last" (click)="moveList(list, 1)">
+              <mat-icon>arrow_downward</mat-icon>
+              <span>Move down</span>
+            </button>
+            <button mat-menu-item type="button" (click)="deleteList(list)">
+              <mat-icon>delete</mat-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        </div>
       } @empty {
-        @if (folders.isLoading()) {
+        @if (lists.isLoading()) {
           <p class="note">…</p>
+        } @else {
+          <p class="note">No lists: make one with +.</p>
         }
       }
     </nav>
 
-    <section class="list" aria-label="Tickets">
+    <section class="main" aria-label="Tickets">
       <div class="filters">
-        <!-- The folders: a menu on a phone. -->
-        <mat-form-field class="folder-select" appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Folder</mat-label>
-          <mat-select [value]="query().folder" (selectionChange)="chooseFolder($event.value)">
-            @for (section of sections(); track section.name) {
-              <mat-optgroup [label]="section.name">
-                @for (folder of section.folders; track folder.id) {
-                  <mat-option [value]="folder.id">
-                    {{ folder.label }}
-                    @if (folderCount(folder); as count) {
-                      ({{ count }})
-                    }
-                  </mat-option>
-                }
-              </mat-optgroup>
-            }
-          </mat-select>
-        </mat-form-field>
+        <!-- The lists: a menu on a phone, with its own + -->
+        <div class="list-picker">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>List</mat-label>
+            <mat-select [value]="currentList()?.id" (selectionChange)="chooseList($event.value)">
+              @for (list of listData(); track list.id) {
+                <mat-option [value]="list.id">
+                  {{ list.name }}
+                  @if (listCount(list); as count) {
+                    ({{ count }})
+                  }
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-icon-button type="button" aria-label="New list" (click)="addList()">
+            <mat-icon>add</mat-icon>
+          </button>
+          @if (currentList(); as list) {
+            <button
+              mat-icon-button
+              type="button"
+              [attr.aria-label]="'Edit ' + list.name"
+              (click)="editList(list)"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+          }
+        </div>
 
-        <mat-form-field class="search search-bar" appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field
+          class="filter-search search-bar"
+          appearance="outline"
+          subscriptSizing="dynamic"
+        >
           <mat-icon matPrefix>search</mat-icon>
           <input
             matInput
@@ -60,17 +114,20 @@
           />
         </mat-form-field>
 
-        <mat-form-field class="status" appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field class="filter-status" appearance="outline" subscriptSizing="dynamic">
           <mat-label>Status</mat-label>
           <mat-select [value]="query().status ?? ''" (selectionChange)="chooseStatus($event.value)">
             <mat-option value="">Any</mat-option>
-            @for (status of folderData()?.statuses ?? []; track status.value) {
-              <mat-option [value]="status.value">{{ status.label }}</mat-option>
+            @for (status of optionData()?.statuses ?? []; track status.value; let i = $index) {
+              <mat-option [value]="status.value">
+                <span class="dot" [style.background-color]="statusColor(i)"></span>
+                {{ status.label }}
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field class="customer" appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field class="filter-customer" appearance="outline" subscriptSizing="dynamic">
           <mat-label>Customer</mat-label>
           <input
             matInput
@@ -97,7 +154,7 @@
           </mat-autocomplete>
         </mat-form-field>
 
-        <mat-form-field class="sort" appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field class="filter-sort" appearance="outline" subscriptSizing="dynamic">
           <mat-label>Order</mat-label>
           <mat-select [value]="sort()" (selectionChange)="chooseSort($event.value)">
             @for (option of sorts; track option.value) {
@@ -137,6 +194,9 @@
       @if (failure(); as message) {
         <p class="message error" role="alert">{{ message }}</p>
         <div class="retry">
+          @if (currentList(); as list) {
+            <button mat-stroked-button type="button" (click)="editList(list)">Edit the list</button>
+          }
           <button mat-stroked-button type="button" (click)="tickets.reload()">Try again</button>
         </div>
       } @else if (tickets.hasValue()) {
@@ -149,7 +209,11 @@
               <a class="row" [class.closed]="row.closed" [routerLink]="link(row)">
                 <div class="line top">
                   <span class="number">{{ row.number }}</span>
-                  <span class="status" [class.closed]="row.closed">{{ row.status }}</span>
+                  <span
+                    class="status-chip"
+                    [style.background-color]="statusColor(row.statusIndex)"
+                    >{{ row.status }}</span
+                  >
                   @if (row.priority) {
                     <span class="priority">{{ row.priority }}</span>
                   }

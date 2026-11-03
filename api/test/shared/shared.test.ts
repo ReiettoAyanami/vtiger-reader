@@ -73,12 +73,14 @@ describe('source rules', () => {
       // Deleting a user is a real deletion of everything that is theirs (lenzi, 2026-10-01), kept in
       // the accounts module. Unlinking a CRM account deletes its row: the sealed access key is not
       // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
-      // preference, not a record (tickets/repository.ts).
+      // preference, not a record (tickets/repository.ts); so is deleting one of one's lists
+      // (lists/repository.ts).
       const normalized = file.replace(/\\/g, '/');
       if (
         normalized.includes('/src/modules/accounts/') ||
         normalized.endsWith('/src/modules/crm/repository.ts') ||
-        normalized.endsWith('/src/modules/tickets/repository.ts')
+        normalized.endsWith('/src/modules/tickets/repository.ts') ||
+        normalized.endsWith('/src/modules/lists/repository.ts')
       ) {
         continue;
       }

@@ -25,8 +25,11 @@ export const ANSWER_TIMEOUT_MS = 15_000;
  * proxy in front of a stopped API (502, 503, 504). Any other status is an answer.
  */
 export function isUnreachable(error: ApiError): boolean {
-  return error.status === null || error.status === 502 || error.status === 503 || error.status === 504;
+  return (
+    error.status === null || error.status === 502 || error.status === 503 || error.status === 504
+  );
 }
 
 /** What a form says when its save got no answer: its values and its clientRef stay. */
-export const SERVER_NOT_REACHABLE = 'Server not reachable. Press Save again: it will not be saved twice.';
+export const SERVER_NOT_REACHABLE =
+  'Server not reachable. Press Save again: it will not be saved twice.';

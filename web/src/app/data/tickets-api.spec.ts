@@ -19,22 +19,20 @@ describe('TicketsApi', () => {
 
   afterEach(() => backend.verify());
 
-  it('lists a folder, sending only the filters that are set', async () => {
+  it('a page of a list, sending only the filters that are set', async () => {
     const result = firstValueFrom(
-      api.list({ folder: 'mine-open', q: '', status: 'Open', page: 0, contact: undefined }),
+      api.list({ list: 7, q: '', status: 'Open', page: 0, contact: undefined }),
     );
     const req = backend.expectOne((r) => r.url === '/api/tickets');
-    expect(req.request.params.keys().sort()).toEqual(['folder', 'page', 'status']);
-    expect(req.request.params.get('folder')).toBe('mine-open');
+    expect(req.request.params.keys().sort()).toEqual(['list', 'page', 'status']);
+    expect(req.request.params.get('list')).toBe('7');
     req.flush({ items: [], page: 0, size: 50, total: 0 });
     expect((await result).total).toBe(0);
   });
 
-  it('folders, counts, names, a ticket, its attachments, customers', async () => {
-    void firstValueFrom(api.folders());
-    backend.expectOne('/api/tickets/folders').flush({ folders: [], statuses: [] });
-    void firstValueFrom(api.folderCounts());
-    backend.expectOne('/api/tickets/folders/counts').flush({});
+  it('options, names, a ticket, its attachments, customers', async () => {
+    void firstValueFrom(api.options());
+    backend.expectOne('/api/tickets/options').flush({ statuses: [], groups: [], picklists: [] });
     void firstValueFrom(api.names(['11x1', '11x2']));
     expect(backend.expectOne((r) => r.url === '/api/names').request.params.get('ids')).toBe(
       '11x1,11x2',

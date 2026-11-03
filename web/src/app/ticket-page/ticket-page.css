@@ -43,17 +43,12 @@
   font: var(--mat-sys-label-large);
 }
 
-.status {
+/* The status: its own colour (ui/status-color.ts), dark text on every one. */
+.status-chip {
   padding: 2px 12px;
   border-radius: 12px;
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
+  color: #1d1b20;
   font: var(--mat-sys-label-medium);
-}
-
-.status.closed {
-  background: var(--mat-sys-surface-container-highest);
-  color: var(--mat-sys-on-surface-variant);
 }
 
 .priority {

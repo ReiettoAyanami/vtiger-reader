@@ -29,7 +29,7 @@ export const listSchema = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      folder: { type: 'string', minLength: 1, maxLength: 200 },
+      list: { type: 'integer', minimum: 1, maximum: 4294967295 },
       q: { type: 'string', maxLength: 100 },
       status: { type: 'string', maxLength: 100 },
       contact: recordId,

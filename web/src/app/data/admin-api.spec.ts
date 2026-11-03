@@ -21,7 +21,9 @@ describe('AdminApi', () => {
   let backend: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     api = TestBed.inject(AdminApi);
     backend = TestBed.inject(HttpTestingController);
   });
@@ -35,7 +37,12 @@ describe('AdminApi', () => {
   });
 
   it('createUser: POST with the user', async () => {
-    const input = { username: 'friend', email: 'friend@dev.invalid', password: 'Friend-pass-0001', role: 'user' as const };
+    const input = {
+      username: 'friend',
+      email: 'friend@dev.invalid',
+      password: 'Friend-pass-0001',
+      role: 'user' as const,
+    };
     const answer = firstValueFrom(api.createUser(input));
     const req = backend.expectOne({ method: 'POST', url: '/api/admin/users' });
     expect(req.request.body).toEqual(input);
@@ -53,7 +60,9 @@ describe('AdminApi', () => {
 
   it('deleteUser: DELETE', async () => {
     const answer = firstValueFrom(api.deleteUser(7));
-    backend.expectOne({ method: 'DELETE', url: '/api/admin/users/7' }).flush(null, { status: 204, statusText: 'No Content' });
+    backend
+      .expectOne({ method: 'DELETE', url: '/api/admin/users/7' })
+      .flush(null, { status: 204, statusText: 'No Content' });
     await expect(answer).resolves.toBeNull();
   });
 
@@ -67,7 +76,9 @@ describe('AdminApi', () => {
 
   it('generatedPassword: the password of the answer', async () => {
     const answer = firstValueFrom(api.generatedPassword());
-    backend.expectOne({ method: 'GET', url: '/api/admin/generated-password' }).flush({ password: 'Gen-erated-pass-42' });
+    backend
+      .expectOne({ method: 'GET', url: '/api/admin/generated-password' })
+      .flush({ password: 'Gen-erated-pass-42' });
     expect(await answer).toBe('Gen-erated-pass-42');
   });
 });

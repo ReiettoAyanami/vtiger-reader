@@ -17,9 +17,10 @@ import { OTHER, TESTER, idOf } from '../support/session.js';
 
 interface Ids {
   user: number;
+  list: number;
 }
 
-const MISSING: Ids = { user: 999993 };
+const MISSING: Ids = { user: 999993, list: 999994 };
 const SECRET = 'A-secret';
 /** A's CRM access key: never in an answer, not even A's own. */
 const A_KEY = 'AbCdEf0123456789';
@@ -36,6 +37,7 @@ type Case =
   | { kind: 'hidden'; call: Call };
 
 const own = (call: (as: Api) => Promise<Res>): Case => ({ kind: 'own', call });
+const like = (call: Call, echoesInput = false): Case => ({ kind: 'like-missing', call, echoesInput });
 const hidden = (call: Call): Case => ({ kind: 'hidden', call });
 
 /**
@@ -52,10 +54,16 @@ const CASES: Record<string, Case[]> = {
   'DELETE /api/crm/link': [own((b) => b.del('/api/crm/link'))],
   // Tickets: read from the CRM with B's own account (B unlinked above: each answers B's "not
   // linked"); nothing of A's in them. A's image marks are A's: B's mark changes none of them.
-  'GET /api/tickets/folders': [own((b) => b.get('/api/tickets/folders'))],
-  'GET /api/tickets/folders/counts': [own((b) => b.get('/api/tickets/folders/counts'))],
+  'GET /api/tickets/options': [own((b) => b.get('/api/tickets/options'))],
+  // Lists: A's list ids answer as missing ones
+  'GET /api/lists': [own((b) => b.get('/api/lists'))],
+  'GET /api/lists/counts': [own((b) => b.get('/api/lists/counts'))],
+  'POST /api/lists': [own((b) => b.post('/api/lists', { name: 'B list', filter: { owner: 'me', status: 'any' } }))],
+  'PUT /api/lists/order': [like((b, i) => b.put('/api/lists/order', { ids: [i.list] }))],
+  'PUT /api/lists/:id': [like((b, i) => b.put(`/api/lists/${i.list}`, { name: SECRET, filter: { owner: 'me', status: 'any' } }), true)],
+  'DELETE /api/lists/:id': [like((b, i) => b.del(`/api/lists/${i.list}`))],
   'GET /api/names': [own((b) => b.get('/api/names?ids=11x1'))],
-  'GET /api/tickets': [own((b) => b.get('/api/tickets?folder=all'))],
+  'GET /api/tickets': [own((b) => b.get('/api/tickets')), like((b, i) => b.get(`/api/tickets?list=${i.list}`))],
   'GET /api/tickets/:id': [own((b) => b.get('/api/tickets/17x1'))],
   'GET /api/tickets/:id/attachments': [own((b) => b.get('/api/tickets/17x1/attachments'))],
   'GET /api/tickets/:id/files/:fileId': [own((b) => b.get('/api/tickets/17x1/files/15x1'))],
@@ -88,7 +96,8 @@ async function recordA(): Promise<Ids> {
   expect((await api.put('/api/crm/link', { url: CRM_URL, username: 'mario.rossi', accessKey: A_KEY })).status).toBe(200);
   const aId = await idOf(api.app, TESTER);
   await rawRows("INSERT INTO image_mark (user_id, exact_hash, dhash, ratio, mark) VALUES (?, REPEAT('a', 64), REPEAT('b', 16), 3, 'logo')", [aId]);
-  return { user: await idOf(api.app, TESTER) };
+  const list = (await api.post('/api/lists', { name: SECRET, filter: { owner: 'me', status: 'any' } })).body.id as number;
+  return { user: await idOf(api.app, TESTER), list };
 }
 
 /** Every row of a user's own data, as stored. */
@@ -97,6 +106,7 @@ async function dataOf(userId: number) {
     settings: await rawRows('SELECT * FROM user_settings WHERE user_id = ?', [userId]),
     crmLink: await rawRows('SELECT * FROM crm_link WHERE user_id = ?', [userId]),
     imageMarks: await rawRows('SELECT * FROM image_mark WHERE user_id = ?', [userId]),
+    lists: await rawRows('SELECT * FROM ticket_list WHERE user_id = ? ORDER BY id', [userId]),
   };
 }
 
