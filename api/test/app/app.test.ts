@@ -170,7 +170,7 @@ describe('security headers (lenzi, 2026-10-03: "si")', () => {
   // The whole policy, spelled out: a change to it is a decision, not a side effect.
   const POLICY =
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; " +
+    "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self'; object-src 'none'; " +
     "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
   let dir: string;
   let web: Api;

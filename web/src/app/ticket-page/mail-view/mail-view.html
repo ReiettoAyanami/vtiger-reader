@@ -1,0 +1,48 @@
+<div class="head">
+  <mat-button-toggle-group
+    class="modes"
+    [value]="mode()"
+    (change)="mode.set($event.value)"
+    hideSingleSelectionIndicator
+    [attr.aria-label]="label() + ': how to show it'"
+  >
+    <mat-button-toggle value="clean">Clean</mat-button-toggle>
+    <mat-button-toggle value="raw">Raw</mat-button-toggle>
+    <mat-button-toggle value="source">Source</mat-button-toggle>
+  </mat-button-toggle-group>
+  @if (mode() === 'clean' && cut()) {
+    <span class="hint">Quotes, disclaimer and signature hidden</span>
+  }
+  @if (mode() === 'raw' && remoteCount() > 0 && !loadRemote()) {
+    <button mat-button type="button" class="load-images" (click)="loadRemote.set(true)">
+      <mat-icon>image</mat-icon>
+      Load {{ remoteCount() }} remote {{ remoteCount() === 1 ? 'image' : 'images' }}
+    </button>
+  }
+</div>
+
+@switch (mode()) {
+  @case ('clean') {
+    @if (text()) {
+      <p class="clean">{{ text() }}</p>
+    } @else {
+      <p class="clean empty">No text of its own: see Raw.</p>
+    }
+  }
+  @case ('raw') {
+    @if (isHtml()) {
+      <!-- No allow-scripts, no allow-same-origin: the mail cannot run or reach the app. -->
+      <iframe
+        class="raw"
+        [title]="label() + ', as received'"
+        sandbox="allow-popups allow-popups-to-escape-sandbox"
+        [srcdoc]="rawPage()"
+      ></iframe>
+    } @else {
+      <pre class="source">{{ html() }}</pre>
+    }
+  }
+  @case ('source') {
+    <pre class="source">{{ html() }}</pre>
+  }
+}

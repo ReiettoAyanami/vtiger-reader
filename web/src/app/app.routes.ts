@@ -35,6 +35,12 @@ export const routes: Routes = [
         loadComponent: () => import('./tickets-page/tickets-page').then((m) => m.TicketsPage),
         title: 'Tickets',
       },
+      // One ticket of the user's CRM, by its CRM id (17x1234).
+      {
+        path: 'tickets/:id',
+        loadComponent: () => import('./ticket-page/ticket-page').then((m) => m.TicketPage),
+        title: 'Ticket',
+      },
       {
         path: 'settings',
         loadComponent: () => import('./settings-page/settings-page').then((m) => m.SettingsPage),

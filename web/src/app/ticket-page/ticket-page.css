@@ -1,0 +1,213 @@
+/* One column, like the settings: full width on a phone, at most 860 px. */
+.ticket {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 8px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+}
+
+.back {
+  align-self: flex-start;
+}
+
+.bar {
+  height: 4px;
+  margin-top: -8px;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--mat-sys-surface-container-low);
+  border: var(--app-border) solid var(--mat-sys-outline-variant);
+  min-width: 0;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.number {
+  font: var(--mat-sys-label-large);
+}
+
+.status {
+  padding: 2px 12px;
+  border-radius: 12px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-label-medium);
+}
+
+.status.closed {
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.priority {
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-tertiary);
+}
+
+.title {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+  color: var(--mat-sys-on-surface);
+  overflow-wrap: anywhere;
+}
+
+.facts,
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 4px 0 0;
+}
+
+dt {
+  font: var(--mat-sys-label-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+dd {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.mine {
+  color: var(--mat-sys-primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+
+/* A disabled button gets no pointer events: its wrapper carries the tooltip. */
+.disabled-action {
+  display: inline-flex;
+  border-radius: 20px;
+}
+
+.disabled-action:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+}
+
+.card-title,
+.section-title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  color: var(--mat-sys-on-surface);
+}
+
+.section-title {
+  margin: 8px 4px 0;
+}
+
+.solution {
+  border-color: color-mix(in srgb, var(--mat-sys-primary) 50%, var(--mat-sys-outline-variant));
+}
+
+.details {
+  --mat-expansion-container-background-color: var(--mat-sys-surface-container-low);
+  --mat-expansion-container-elevation-shadow: none;
+  display: block;
+  padding: 0;
+}
+
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment.customer {
+  background: var(--mat-sys-surface-container);
+}
+
+.comment.private {
+  border-style: dashed;
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.author {
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface);
+}
+
+.author.mine {
+  color: var(--mat-sys-primary);
+}
+
+.tag {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+  font: var(--mat-sys-label-small);
+}
+
+.when {
+  margin-left: auto;
+  font: var(--mat-sys-body-small);
+}
+
+.repeated {
+  align-self: flex-start;
+}
+
+.document {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.document-title {
+  font: var(--mat-sys-title-small);
+}
+
+.note {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.message {
+  margin: 32px 0 8px;
+  text-align: center;
+  font: var(--mat-sys-body-large);
+}
+
+.message.error {
+  color: var(--mat-sys-error);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+}

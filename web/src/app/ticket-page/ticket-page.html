@@ -1,0 +1,210 @@
+<main class="ticket">
+  <a mat-button class="back" [routerLink]="backLink()">
+    <mat-icon>arrow_back</mat-icon>
+    Tickets
+  </a>
+
+  <div class="bar" aria-hidden="true">
+    @if (ticket.isLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+  </div>
+
+  @if (failure(); as message) {
+    <p class="message error" role="alert">{{ message }}</p>
+    @if (message.startsWith('Link')) {
+      <div class="center">
+        <a mat-flat-button [routerLink]="session.path('/settings')">Settings</a>
+      </div>
+    } @else {
+      <div class="center">
+        <button mat-stroked-button type="button" (click)="ticket.reload()">Try again</button>
+      </div>
+    }
+  } @else if (ticket.hasValue()) {
+    @let t = ticket.value();
+    <section class="card header" aria-labelledby="ticket-title">
+      <div class="line">
+        <span class="number">{{ t.number }}</span>
+        <span class="status" [class.closed]="t.closed">{{ t.status }}</span>
+        @if (t.priority) {
+          <span class="priority">{{ t.priority }}</span>
+        }
+        @if (t.category) {
+          <span class="category">{{ t.category }}</span>
+        }
+      </div>
+      <h1 class="title" id="ticket-title">{{ t.title || '(no title)' }}</h1>
+
+      <dl class="facts">
+        @if (t.organization) {
+          <div>
+            <dt>Organization</dt>
+            <dd>{{ t.organization.name || '—' }}</dd>
+          </div>
+        }
+        @if (t.contact) {
+          <div>
+            <dt>Contact</dt>
+            <dd>{{ t.contact.name || '—' }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Assigned to</dt>
+          <dd [class.mine]="t.owner.kind === 'me'">{{ whoLabel(t.owner) }}</dd>
+        </div>
+        <div>
+          <dt>Created</dt>
+          <dd>{{ t.createdAt | when }}</dd>
+        </div>
+        <div>
+          <dt>Changed</dt>
+          <dd>{{ t.modifiedAt | when }}</dd>
+        </div>
+      </dl>
+
+      <div class="actions">
+        <a mat-stroked-button [href]="t.crmLink" target="_blank" rel="noopener noreferrer">
+          <mat-icon>open_in_new</mat-icon>
+          Open in CRM
+        </a>
+        <!-- Read-only for now (plan 3.8): the API has no route that writes to the CRM. -->
+        @for (action of actions; track action.label) {
+          <span class="disabled-action" matTooltip="Read-only for now" tabindex="0">
+            <button mat-button type="button" disabled>
+              <mat-icon>{{ action.icon }}</mat-icon>
+              {{ action.label }}
+            </button>
+          </span>
+        }
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="request-title">
+      <h2 class="card-title" id="request-title">Request</h2>
+      @if (t.description; as description) {
+        <app-mail-view
+          label="Request"
+          [ticketId]="t.id"
+          [text]="description.text"
+          [cut]="description.cut"
+          [html]="description.html"
+          [attachments]="files()"
+        />
+      } @else {
+        <p class="note">No description.</p>
+      }
+    </section>
+
+    @if (t.solution; as solution) {
+      <section class="card solution" aria-labelledby="solution-title">
+        <h2 class="card-title" id="solution-title">Solution</h2>
+        <app-mail-view
+          label="Solution"
+          [ticketId]="t.id"
+          [text]="solution.text"
+          [cut]="solution.cut"
+          [html]="solution.html"
+          [attachments]="files()"
+        />
+      </section>
+    }
+
+    @if (t.fields.length > 0) {
+      <mat-expansion-panel class="card details">
+        <mat-expansion-panel-header>
+          <mat-panel-title>Details</mat-panel-title>
+          <mat-panel-description>{{ t.fields.length }} fields</mat-panel-description>
+        </mat-expansion-panel-header>
+        <dl class="fields">
+          @for (field of t.fields; track field.name) {
+            <div>
+              <dt>{{ field.label }}</dt>
+              <dd>{{ field.value }}</dd>
+            </div>
+          }
+        </dl>
+      </mat-expansion-panel>
+    }
+
+    <section class="comments" aria-labelledby="comments-title">
+      <h2 class="section-title" id="comments-title">Comments ({{ t.comments.length }})</h2>
+      @if (attachments.isLoading()) {
+        <p class="note">Reading the attachments…</p>
+      }
+      @for (comment of t.comments; track comment.id) {
+        @if (comment.sameAsDescription && !showRepeated()) {
+          <button mat-button type="button" class="repeated" (click)="showRepeated.set(true)">
+            <mat-icon>unfold_more</mat-icon>
+            The request, as its first comment ({{ comment.at | when }})
+          </button>
+          @if (filesOf(comment.files).length > 0) {
+            <div class="card comment">
+              <app-files-view
+                [ticketId]="t.id"
+                [files]="filesOf(comment.files)"
+                (marked)="attachments.reload()"
+              />
+            </div>
+          }
+        } @else {
+          <article
+            class="card comment"
+            [class.customer]="comment.author.kind === 'customer'"
+            [class.private]="comment.private"
+          >
+            <header class="comment-head">
+              <mat-icon aria-hidden="true">{{ authorIcon(comment) }}</mat-icon>
+              <span class="author" [class.mine]="comment.author.kind === 'me'">{{
+                whoLabel(comment.author)
+              }}</span>
+              @if (comment.private) {
+                <span class="tag">Private</span>
+              }
+              <span class="when">{{ comment.at | when }}</span>
+            </header>
+            <app-mail-view
+              [label]="'Comment by ' + whoLabel(comment.author)"
+              [ticketId]="t.id"
+              [text]="comment.body.text"
+              [cut]="comment.body.cut"
+              [html]="comment.html"
+              [attachments]="files()"
+            />
+            @if (filesOf(comment.files).length > 0) {
+              <app-files-view
+                [ticketId]="t.id"
+                [files]="filesOf(comment.files)"
+                (marked)="attachments.reload()"
+              />
+            }
+          </article>
+        }
+      } @empty {
+        <p class="note">No comments.</p>
+      }
+    </section>
+
+    @if (t.documents.length > 0) {
+      <section class="card" aria-labelledby="documents-title">
+        <h2 class="card-title" id="documents-title">Documents</h2>
+        @for (document of t.documents; track document.id) {
+          <div class="document">
+            <span class="document-title">{{ document.title || document.fileName }}</span>
+            @if (filesOf(document.files).length > 0) {
+              <app-files-view
+                [ticketId]="t.id"
+                [files]="filesOf(document.files)"
+                (marked)="attachments.reload()"
+              />
+            } @else if (attachments.isLoading()) {
+              <span class="note">…</span>
+            } @else {
+              <span class="note">{{ document.fileName }} (not readable)</span>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+</main>

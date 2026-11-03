@@ -13,6 +13,7 @@ import { AdminApi } from './data/admin-api';
 import { AuthApi, type SessionUser } from './data/auth-api';
 import { CrmLinkApi } from './data/crm-link-api';
 import { SettingsApi } from './data/settings-api';
+import { TicketsApi } from './data/tickets-api';
 import { VersionApi } from './data/version-api';
 
 const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null };
@@ -23,7 +24,28 @@ function pageData(getSettings: () => unknown) {
     { provide: SettingsApi, useValue: { getSettings } },
     {
       provide: CrmLinkApi,
-      useValue: { getLink: () => of({ crmUrl: null, linked: false, username: null, linkedAt: null, lastLoginAt: null, problem: null }) },
+      useValue: {
+        getLink: () =>
+          of({
+            crmUrl: null,
+            linked: false,
+            username: null,
+            linkedAt: null,
+            lastLoginAt: null,
+            problem: null,
+          }),
+      },
+    },
+    // the start page: the tickets
+    {
+      provide: TicketsApi,
+      useValue: {
+        folders: () => of({ folders: [], statuses: [] }),
+        folderCounts: () => of({}),
+        list: () => of({ items: [], page: 0, size: 50, total: 0 }),
+        names: () => of({}),
+        customers: () => of([]),
+      },
     },
     // the shell's own: the version in the corner
     { provide: VersionApi, useValue: { getVersion: () => of('dev26.0.0') } },
@@ -70,9 +92,12 @@ describe('App', () => {
       },
       sidebar: fixture.debugElement.query(By.directive(MatSidenav)).componentInstance as MatSidenav,
       title: () => element.querySelector('mat-toolbar .title')?.textContent?.trim(),
-      menuButton: () => element.querySelector<HTMLButtonElement>('mat-toolbar button[aria-label="Menu"]'),
+      menuButton: () =>
+        element.querySelector<HTMLButtonElement>('mat-toolbar button[aria-label="Menu"]'),
       link: (label: string) =>
-        Array.from(element.querySelectorAll<HTMLElement>('app-sidebar [mat-list-item]')).find((a) => a.textContent?.includes(label))!,
+        Array.from(element.querySelectorAll<HTMLElement>('app-sidebar [mat-list-item]')).find((a) =>
+          a.textContent?.includes(label),
+        )!,
     };
   }
 
@@ -104,13 +129,21 @@ describe('App', () => {
     // the page is made once: hiding or showing the app around it does not make it again
     expect(app.getSettings).toHaveBeenCalledTimes(1);
 
-    for (const url of ['/lenzi/no-such-page', '/tickets', '/settings', '/other-user', '/other-user/settings']) {
+    for (const url of [
+      '/lenzi/no-such-page',
+      '/tickets',
+      '/settings',
+      '/other-user',
+      '/other-user/settings',
+    ]) {
       await app.go(url);
       expect(app.router.url).toBe(url);
       expect(app.element.querySelector('app-not-found-page')).not.toBeNull();
       expect(app.title()).toBe('Not found');
       // the way out: one's own start page
-      expect(app.element.querySelector('app-not-found-page a')?.getAttribute('href')).toBe('/lenzi');
+      expect(app.element.querySelector('app-not-found-page a')?.getAttribute('href')).toBe(
+        '/lenzi',
+      );
     }
   });
 
@@ -155,7 +188,9 @@ describe('App', () => {
     app.menuButton()!.click();
     await app.fixture.whenStable();
     // The drawer moves the focus once it is open: wait for the entry itself, the current page's.
-    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-current')).toBe('page'));
+    await vi.waitFor(() =>
+      expect(document.activeElement?.getAttribute('aria-current')).toBe('page'),
+    );
     expect(document.activeElement?.textContent).toContain('Settings');
   });
 
@@ -170,13 +205,23 @@ describe('App', () => {
     expect(app.element.querySelector('app-not-found-page')).not.toBeNull();
     TestBed.resetTestingModule();
 
-    const user = await start('/friend/admin', { id: 2, username: 'friend', role: 'user', impersonatedBy: null });
+    const user = await start('/friend/admin', {
+      id: 2,
+      username: 'friend',
+      role: 'user',
+      impersonatedBy: null,
+    });
     expect(user.router.url).toBe('/friend/admin');
     expect(user.element.querySelector('app-not-found-page')).not.toBeNull();
   });
 
   it('"admin" is a username like any other (lenzi, 2026-10-03): /admin is its start page, /admin/admin its admin view', async () => {
-    const app = await start('/admin', { id: 1, username: 'admin', role: 'admin', impersonatedBy: null });
+    const app = await start('/admin', {
+      id: 1,
+      username: 'admin',
+      role: 'admin',
+      impersonatedBy: null,
+    });
     expect(app.element.querySelector('app-tickets-page')).not.toBeNull();
 
     await app.go('/admin/admin');
@@ -184,11 +229,21 @@ describe('App', () => {
   });
 
   it('an administrator acting as a user: the "Viewing as" bar above the top bar, no admin view', async () => {
-    const app = await start('/friend', { id: 7, username: 'friend', role: 'user', impersonatedBy: 1 });
+    const app = await start('/friend', {
+      id: 7,
+      username: 'friend',
+      role: 'user',
+      impersonatedBy: 1,
+    });
 
-    expect(app.element.querySelector('app-viewing-as-bar')?.textContent).toContain('Viewing as friend');
+    expect(app.element.querySelector('app-viewing-as-bar')?.textContent).toContain(
+      'Viewing as friend',
+    );
     const bar = app.element.querySelector('app-viewing-as-bar')!;
-    expect(bar.compareDocumentPosition(app.element.querySelector('mat-toolbar')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      bar.compareDocumentPosition(app.element.querySelector('mat-toolbar')!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await app.go('/friend/admin');
     expect(app.element.querySelector('app-not-found-page')).not.toBeNull();
   });

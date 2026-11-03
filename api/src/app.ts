@@ -16,6 +16,8 @@ import { authDatabase } from './modules/identity/insert-memory.js';
 import { accountRoutes, identityRoutes } from './modules/identity/routes.js';
 import { SIGN_IN_DELAY, SignInThrottle, type SignInDelay } from './modules/identity/throttle.js';
 import { settingsRoutes } from './modules/settings/routes.js';
+import { ticketRoutes } from './modules/tickets/routes.js';
+import { TicketsService } from './modules/tickets/service.js';
 import { SettingsService } from './modules/settings/service.js';
 import {
   PROBLEM_CONTENT_TYPE,
@@ -189,6 +191,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   accountRoutes(app, { identity });
   settingsRoutes(app, { settings });
   crmLinkRoutes(app, { links });
+  ticketRoutes(app, { tickets: new TicketsService(pool, crmClient) });
   adminRoutes(app, { admin: new AdminService(identity, accounts) });
 
   if (opts.webDist) {

@@ -6,13 +6,7 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The batch bar's tooltip (BatchBar): the name on the first line, the unit price on the second. The
-   tooltip lives in the overlay, outside the component's styles. */
-.batch-bar-tooltip .mat-mdc-tooltip-surface {
-  white-space: pre-line;
-}
-
-/* The toggles ("last | avg", "quantity | value", "total | per unit"): pills, as Material draws
+/* The toggles (a mail's "Clean | Raw | Source"): pills, as Material draws
    them, only smaller (lenzi, 2026-09-30: less tall, not less round, and no narrower than they
    were): 32 px high instead of Material's 40, each label with a little more room at its sides.
    Set here once, for every one of them. */
@@ -26,48 +20,11 @@ html {
 
 /* A search bar is an elongated circle, like a browser's (lenzi, 2026-09-30): a little lower than a
    text field, its ends fully rounded. Only search bars: every other text field keeps Material's
-   corners. Any search field takes this class; there is one today, in the substances page. */
+   corners. Any search field takes this class; there is one today, in the tickets page. */
 .search-bar {
   --mat-form-field-container-height: 48px;
   --mat-form-field-container-vertical-padding: 12px;
   --mat-form-field-outlined-container-shape: 24px;
-}
-
-/* The options of "Add a metric" (/statistics/edit): each with its description under its name. The
-   options live in the overlay, outside the component's styles. */
-.view-item-options .mat-mdc-option {
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-
-.view-item-options .option-label {
-  display: block;
-}
-
-.view-item-options .option-description {
-  display: block;
-  font: var(--mat-sys-body-small);
-  color: var(--mat-sys-on-surface-variant);
-  white-space: normal;
-}
-
-/* An expansion panel inside a surface of its own (a dialog: the consumption's details), class
-   "flat": no card of its own, its title and its content in line with the text around it (lenzi,
-   2026-10-01: "Metrics" aligned with what is above it). The header and body paddings are Material's
-   plain CSS, hence the selectors; the rest are its tokens. */
-.mat-expansion-panel.flat {
-  --mat-expansion-container-background-color: transparent;
-  --mat-expansion-container-elevation-shadow: none;
-  --mat-expansion-header-hover-state-layer-color: transparent;
-  --mat-expansion-header-focus-state-layer-color: transparent;
-}
-
-.mat-expansion-panel.flat .mat-expansion-panel-header {
-  padding: 0;
-}
-
-.mat-expansion-panel.flat .mat-expansion-panel-body {
-  padding: 0 0 8px;
 }
 
 /* On a phone the header of every panel keeps only its title: what it holds (the period, the totals,
@@ -79,16 +36,6 @@ html {
   .mat-expansion-panel-header .mat-expansion-panel-header-description {
     display: none;
   }
-}
-
-/* The consumption's details (lenzi, 2026-10-01: "leggermente più chiara", the content "troppo
-   sopra"): a little lighter than the other dialogs (Material's default here is surface):
-   surface-container-high; and 12 px more over its title. Only
-   this dialog (its panelClass). Glass like every window ("glass", below). */
-.consumption-details-dialog {
-  --app-details-surface: var(--mat-sys-surface-container-high);
-  --mat-dialog-container-color: color-mix(in srgb, var(--app-details-surface) var(--app-glass), transparent);
-  --mat-dialog-headline-padding: 18px 24px 13px;
 }
 
 /* Glass (lenzi, 2026-10-01: "un po' di trasparenza nelle finestre", like Android 17's app menu and
@@ -300,28 +247,6 @@ html {
 .mat-datepicker-content.mat-datepicker-content-animations-enabled.mat-datepicker-content-animations-enabled:not(.mat-datepicker-content-exit),
 .mat-snack-bar-container-animations-enabled.mat-snack-bar-container-enter.mat-snack-bar-container-enter {
   animation-duration: 1ms;
-}
-
-/* A window whose metrics panel is not ready, i.e. its first numbers are not on screen yet (the
-   consumption's details: 233, 413, then 694 px in three frames), waits for them hidden, so it
-   appears at its size; at most 400 ms, then it shows anyway (a slow API) and grows when they come.
-   "Not ready" rather than "loading": in its first frame the panel has not marked itself yet.
-   Hidden by opacity, not visibility (lenzi, 2026-10-02: the substance window "si apre da piccola e
-   diventa più grande dopo"): Material's open expansion panels set `visibility: visible` on their
-   content, which beats a hidden parent, so Metrics and Charts showed alone, a frame before their
-   window (Playwright: two panel contents visible inside the hidden window). Opacity hides every
-   descendant; it changes at once, no fade, so the blur is whole from the first visible frame. */
-.mat-mdc-dialog-surface:has(app-metrics-panel:not(.ready)) {
-  opacity: 0;
-  pointer-events: none;
-  animation: app-show-anyway 0s linear 400ms forwards;
-}
-
-@keyframes app-show-anyway {
-  to {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 .cdk-overlay-pane .mat-mdc-dialog-container .mat-mdc-dialog-surface > * {

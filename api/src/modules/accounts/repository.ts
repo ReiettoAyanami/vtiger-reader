@@ -24,10 +24,10 @@ export async function insertStartingState(db: Queryable, owner: Owner, settings:
 
 /**
  * Tables holding one user's own rows, deleted with the user. Every table a later step adds with a
- * user_id (ai_provider, ai_task_model, ai_usage, image_mark, push_subscription) joins this list:
+ * user_id (ai_provider, ai_task_model, ai_usage, push_subscription) joins this list:
  * the lifecycle test checks that no user_id row survives a deletion.
  */
-const USER_TABLES = ['user_settings', 'crm_link', 'password_history', 'sign_in_failures', 'accounts'] as const;
+const USER_TABLES = ['user_settings', 'crm_link', 'image_mark', 'password_history', 'sign_in_failures', 'accounts'] as const;
 
 /**
  * Deletes a user and everything of theirs: preferences and sign-in mechanics only, since nothing

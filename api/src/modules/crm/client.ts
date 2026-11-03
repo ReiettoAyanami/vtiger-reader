@@ -32,6 +32,8 @@ export interface CrmField {
 export interface CrmModule {
   name: string;
   label: string;
+  /** The first part of the module's record ids (`17` for `17x1234`): whether an id is this module's. */
+  idPrefix: string;
   fields: CrmField[];
 }
 
@@ -119,6 +121,11 @@ export class CrmClient {
     this.sessions.delete(owner.userId);
     this.logins.delete(owner.userId);
     if (session) await this.webservice(session.url).call('logout', { sessionName: session.sessionName }).catch(() => undefined);
+  }
+
+  /** The address of the user's CRM (its links: "open in CRM"). */
+  async crmUrl(owner: Owner): Promise<string> {
+    return (await this.session(owner)).url;
   }
 
   /** The CRM user id of the user's session (`19x5`): "assigned to me". */
@@ -229,11 +236,12 @@ export class CrmClient {
 
 /** The parts of a `describe` answer the app uses. */
 export function toModule(module: string, described: unknown): CrmModule {
-  const d = (described ?? {}) as { name?: unknown; label?: unknown; fields?: unknown };
+  const d = (described ?? {}) as { name?: unknown; label?: unknown; idPrefix?: unknown; fields?: unknown };
   const fields = Array.isArray(d.fields) ? d.fields : [];
   return {
     name: typeof d.name === 'string' ? d.name : module,
     label: typeof d.label === 'string' ? d.label : module,
+    idPrefix: typeof d.idPrefix === 'string' || typeof d.idPrefix === 'number' ? String(d.idPrefix) : '',
     fields: fields.flatMap((raw): CrmField[] => {
       const f = raw as { name?: unknown; label?: unknown; type?: { name?: unknown; refersTo?: unknown; picklistValues?: unknown } };
       if (typeof f.name !== 'string') return [];

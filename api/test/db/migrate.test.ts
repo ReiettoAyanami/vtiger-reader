@@ -55,6 +55,7 @@ describe('migrations', () => {
     expect(tables.map((t) => t.name)).toEqual([
       'accounts',
       'crm_link',
+      'image_mark',
       'password_history',
       'rate_limits',
       'schema_migrations',
@@ -71,6 +72,8 @@ describe('migrations', () => {
     );
     expect(unique.map((u) => `${u.t}.${u.c}`)).toEqual([
       'crm_link.user_id',
+      'image_mark.exact_hash',
+      'image_mark.user_id',
       'rate_limits.key',
       'sessions.token',
       'user_settings.user_id',
@@ -84,6 +87,7 @@ describe('migrations', () => {
     expect(fks.map((f) => `${f.t}.${f.c}->${f.r}`)).toEqual([
       'accounts.user_id->users',
       'crm_link.user_id->users',
+      'image_mark.user_id->users',
       'password_history.user_id->users',
       'sessions.impersonated_by->users',
       'sessions.user_id->users',

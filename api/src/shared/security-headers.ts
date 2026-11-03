@@ -13,7 +13,9 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data:",
+  // https: and blob: for a mail's own view (the Raw view of a ticket, plan 3.5): its frame narrows
+  // this again, and lets remote images through only after "Load images".
+  "img-src 'self' data: blob: https:",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -38,11 +40,16 @@ export function securityHeaders(appUrl: string): Record<string, string> {
   };
 }
 
-/** On every answer: the app's files, the API's answers and its errors. Before any route. */
+/**
+ * On every answer: the app's files, the API's answers and its errors. Before any route. A route
+ * that sets a stricter policy of its own (an attachment) keeps it.
+ */
 export function securityHeadersHook(app: FastifyInstance, appUrl: string): void {
   const headers = securityHeaders(appUrl);
   app.addHook('onSend', async (_request, reply, payload) => {
+    const own = reply.getHeader('content-security-policy');
     reply.headers(headers);
+    if (own !== undefined) reply.header('content-security-policy', own);
     return payload;
   });
 }

@@ -1,7 +1,205 @@
-<main class="page">
-  <section class="card">
-    <h1 class="title">Tickets</h1>
-    <p class="text">The tickets of your CRM will be here, once your CRM account is linked.</p>
-    <a mat-flat-button [routerLink]="session.path('/settings')">Settings</a>
-  </section>
-</main>
+@if (notLinked()) {
+  <app-link-crm-card />
+} @else {
+  <main class="tickets">
+    <!-- The folders: a column on a wide screen. -->
+    <nav class="folders" aria-label="Folders">
+      @for (section of sections(); track section.name) {
+        <h2 class="section">{{ section.name }}</h2>
+        @for (folder of section.folders; track folder.id) {
+          <button
+            type="button"
+            class="folder"
+            [class.current]="folder.id === query().folder"
+            [attr.aria-current]="folder.id === query().folder ? 'page' : null"
+            (click)="chooseFolder(folder.id)"
+          >
+            <span class="folder-name">{{ folder.label }}</span>
+            @if (folderCount(folder); as count) {
+              <span class="count">{{ count }}</span>
+            }
+          </button>
+        }
+      } @empty {
+        @if (folders.isLoading()) {
+          <p class="note">…</p>
+        }
+      }
+    </nav>
+
+    <section class="list" aria-label="Tickets">
+      <div class="filters">
+        <!-- The folders: a menu on a phone. -->
+        <mat-form-field class="folder-select" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Folder</mat-label>
+          <mat-select [value]="query().folder" (selectionChange)="chooseFolder($event.value)">
+            @for (section of sections(); track section.name) {
+              <mat-optgroup [label]="section.name">
+                @for (folder of section.folders; track folder.id) {
+                  <mat-option [value]="folder.id">
+                    {{ folder.label }}
+                    @if (folderCount(folder); as count) {
+                      ({{ count }})
+                    }
+                  </mat-option>
+                }
+              </mat-optgroup>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="search search-bar" appearance="outline" subscriptSizing="dynamic">
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            matInput
+            type="search"
+            [formControl]="search"
+            placeholder="Title or number"
+            aria-label="Search the tickets"
+            autocomplete="off"
+          />
+        </mat-form-field>
+
+        <mat-form-field class="status" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Status</mat-label>
+          <mat-select [value]="query().status ?? ''" (selectionChange)="chooseStatus($event.value)">
+            <mat-option value="">Any</mat-option>
+            @for (status of folderData()?.statuses ?? []; track status.value) {
+              <mat-option [value]="status.value">{{ status.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="customer" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Customer</mat-label>
+          <input
+            matInput
+            [formControl]="customerInput"
+            [matAutocomplete]="customers"
+            placeholder="Name or mail"
+            autocomplete="off"
+            aria-label="Find a customer by name or mail"
+          />
+          <mat-autocomplete
+            #customers="matAutocomplete"
+            [displayWith]="customerLabel"
+            (optionSelected)="chooseCustomer($event)"
+          >
+            @for (hit of customerHits(); track hit.id) {
+              <mat-option [value]="hit">
+                <span class="hit-name">{{ hit.name }}</span>
+                <span class="hit-detail"
+                  >{{ hit.email
+                  }}{{ hit.organization?.name ? ' · ' + hit.organization?.name : '' }}</span
+                >
+              </mat-option>
+            }
+          </mat-autocomplete>
+        </mat-form-field>
+
+        <mat-form-field class="sort" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Order</mat-label>
+          <mat-select [value]="sort()" (selectionChange)="chooseSort($event.value)">
+            @for (option of sorts; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      @if (customerName(); as name) {
+        <mat-chip-set class="chosen" aria-label="Customer filter">
+          <mat-chip (removed)="clearCustomer()">
+            {{ query().organization ? 'Organization' : 'Contact' }}: {{ name }}
+            <button matChipRemove type="button" [attr.aria-label]="'Remove the filter ' + name">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip>
+          @if (query().contact && customerOrganization(); as organization) {
+            <button
+              mat-button
+              type="button"
+              class="widen"
+              (click)="widenToOrganization(organization)"
+            >
+              All of {{ organization.name }}
+            </button>
+          }
+        </mat-chip-set>
+      }
+
+      <div class="bar" aria-hidden="true">
+        @if (tickets.isLoading()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+      </div>
+
+      @if (failure(); as message) {
+        <p class="message error" role="alert">{{ message }}</p>
+        <div class="retry">
+          <button mat-stroked-button type="button" (click)="tickets.reload()">Try again</button>
+        </div>
+      } @else if (tickets.hasValue()) {
+        @if (rows().length === 0) {
+          <p class="message">No tickets here{{ query().q ? ' for “' + query().q + '”' : '' }}.</p>
+        }
+        <ul class="rows">
+          @for (row of rows(); track row.id) {
+            <li>
+              <a class="row" [class.closed]="row.closed" [routerLink]="link(row)">
+                <div class="line top">
+                  <span class="number">{{ row.number }}</span>
+                  <span class="status" [class.closed]="row.closed">{{ row.status }}</span>
+                  @if (row.priority) {
+                    <span class="priority">{{ row.priority }}</span>
+                  }
+                  <span class="when">{{ row.createdAt | when }}</span>
+                </div>
+                <div class="title">{{ row.title || '(no title)' }}</div>
+                <div class="line people">
+                  @if (row.organization) {
+                    <span class="organization">{{ organizationName(row) }}</span>
+                  }
+                  @if (row.contact?.name) {
+                    <span class="contact">{{ row.contact?.name }}</span>
+                  }
+                  <span class="owner" [class.mine]="row.owner.kind === 'me'">
+                    <mat-icon aria-hidden="true">{{
+                      row.owner.kind === 'group' ? 'groups' : 'person'
+                    }}</mat-icon>
+                    {{ whoLabel(row.owner) }}
+                  </span>
+                </div>
+              </a>
+            </li>
+          }
+        </ul>
+        @if (hasPrevious() || hasNext()) {
+          <div class="pages">
+            <span class="range">{{ range() }}</span>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Previous page"
+              [disabled]="!hasPrevious()"
+              (click)="turnPage(-1)"
+            >
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Next page"
+              [disabled]="!hasNext()"
+              (click)="turnPage(1)"
+            >
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+        } @else if (range()) {
+          <p class="range alone">{{ range() }}</p>
+        }
+      }
+    </section>
+  </main>
+}

@@ -1,0 +1,104 @@
+@if (photos().length > 0) {
+  <div class="photos">
+    @for (file of photos(); track file.id) {
+      <figure class="photo">
+        <button
+          type="button"
+          class="thumb"
+          [attr.aria-label]="'View ' + file.name"
+          (click)="view(file)"
+        >
+          <img [src]="url(file)" [alt]="file.name" loading="lazy" />
+        </button>
+        <figcaption>
+          <span class="name" [title]="file.name">{{ file.name }}</span>
+          <button
+            mat-icon-button
+            type="button"
+            class="more"
+            [attr.aria-label]="'Actions for ' + file.name"
+            [matMenuTriggerFor]="photoMenu"
+          >
+            <mat-icon>more_vert</mat-icon>
+          </button>
+        </figcaption>
+        <mat-menu #photoMenu="matMenu" xPosition="before">
+          <a mat-menu-item [href]="url(file, true)">
+            <mat-icon>download</mat-icon>
+            <span>Download</span>
+          </a>
+          <button
+            mat-menu-item
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="mark(file, 'logo')"
+          >
+            <mat-icon>badge</mat-icon>
+            <span>It is a logo: set it aside</span>
+          </button>
+          @if (file.mark) {
+            <button
+              mat-menu-item
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="mark(file, null)"
+            >
+              <mat-icon>undo</mat-icon>
+              <span>Remove my mark</span>
+            </button>
+          }
+        </mat-menu>
+      </figure>
+    }
+  </div>
+}
+
+@if (others().length > 0) {
+  <ul class="others">
+    @for (file of others(); track file.id) {
+      <li>
+        <a
+          class="file"
+          [href]="url(file, !file.inline)"
+          [attr.target]="file.inline ? '_blank' : null"
+          rel="noopener"
+        >
+          <mat-icon aria-hidden="true">{{ typeIcon(file.type) }}</mat-icon>
+          <span class="name">{{ file.name }}</span>
+          <span class="size">{{ sizeLabel(file.size) }}</span>
+        </a>
+      </li>
+    }
+  </ul>
+}
+
+@if (signatures().length > 0) {
+  <details class="signatures">
+    <summary>Signature images ({{ signatures().length }})</summary>
+    <div class="logos">
+      @for (file of signatures(); track file.id) {
+        <figure class="logo">
+          <img [src]="url(file)" [alt]="file.name" loading="lazy" />
+          <button
+            mat-button
+            type="button"
+            [disabled]="busy() !== null"
+            (click)="mark(file, 'photo')"
+          >
+            Not a logo
+          </button>
+          @if (file.mark) {
+            <button
+              mat-button
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="mark(file, null)"
+            >
+              Remove my mark
+            </button>
+          }
+        </figure>
+      }
+    </div>
+  </details>
+}

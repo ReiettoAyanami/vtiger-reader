@@ -72,9 +72,16 @@ describe('source rules', () => {
     for (const file of await sources(srcDir)) {
       // Deleting a user is a real deletion of everything that is theirs (lenzi, 2026-10-01), kept in
       // the accounts module. Unlinking a CRM account deletes its row: the sealed access key is not
-      // kept once the user takes it back (crm/repository.ts).
+      // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
+      // preference, not a record (tickets/repository.ts).
       const normalized = file.replace(/\\/g, '/');
-      if (normalized.includes('/src/modules/accounts/') || normalized.endsWith('/src/modules/crm/repository.ts')) continue;
+      if (
+        normalized.includes('/src/modules/accounts/') ||
+        normalized.endsWith('/src/modules/crm/repository.ts') ||
+        normalized.endsWith('/src/modules/tickets/repository.ts')
+      ) {
+        continue;
+      }
       const text = await readFile(file, 'utf8');
       expect(text, file).not.toMatch(/\bDELETE\s+FROM\b/i);
       expect(text, file).not.toMatch(/\bTRUNCATE\b/i);

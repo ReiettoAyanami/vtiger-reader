@@ -50,6 +50,17 @@ const CASES: Record<string, Case[]> = {
   'PUT /api/crm/link': [own((b) => b.put('/api/crm/link', { url: CRM_URL, username: 'anna.bianchi', accessKey: 'ZyXwVu9876543210' }))],
   'GET /api/crm/link': [own((b) => b.get('/api/crm/link'))],
   'DELETE /api/crm/link': [own((b) => b.del('/api/crm/link'))],
+  // Tickets: read from the CRM with B's own account (B unlinked above: each answers B's "not
+  // linked"); nothing of A's in them. A's image marks are A's: B's mark changes none of them.
+  'GET /api/tickets/folders': [own((b) => b.get('/api/tickets/folders'))],
+  'GET /api/tickets/folders/counts': [own((b) => b.get('/api/tickets/folders/counts'))],
+  'GET /api/names': [own((b) => b.get('/api/names?ids=11x1'))],
+  'GET /api/tickets': [own((b) => b.get('/api/tickets?folder=all'))],
+  'GET /api/tickets/:id': [own((b) => b.get('/api/tickets/17x1'))],
+  'GET /api/tickets/:id/attachments': [own((b) => b.get('/api/tickets/17x1/attachments'))],
+  'GET /api/tickets/:id/files/:fileId': [own((b) => b.get('/api/tickets/17x1/files/15x1'))],
+  'PUT /api/tickets/:id/files/:fileId/mark': [own((b) => b.put('/api/tickets/17x1/files/15x1/mark', { mark: null }))],
+  'GET /api/customers': [own((b) => b.get('/api/customers?q=rossi'))],
   // B's own account (a wrong current password: nothing changes for the next cases)
   'POST /api/account/password': [own((b) => b.post('/api/account/password', { currentPassword: 'not-mine-0000!', newPassword: 'Taken-pass-00001' }))],
   // Admin: B is no administrator
@@ -75,6 +86,8 @@ afterAll(async () => {
 async function recordA(): Promise<Ids> {
   expect((await api.patch('/api/settings', { timezone: 'Europe/London' })).status).toBe(200);
   expect((await api.put('/api/crm/link', { url: CRM_URL, username: 'mario.rossi', accessKey: A_KEY })).status).toBe(200);
+  const aId = await idOf(api.app, TESTER);
+  await rawRows("INSERT INTO image_mark (user_id, exact_hash, dhash, ratio, mark) VALUES (?, REPEAT('a', 64), REPEAT('b', 16), 3, 'logo')", [aId]);
   return { user: await idOf(api.app, TESTER) };
 }
 
@@ -83,6 +96,7 @@ async function dataOf(userId: number) {
   return {
     settings: await rawRows('SELECT * FROM user_settings WHERE user_id = ?', [userId]),
     crmLink: await rawRows('SELECT * FROM crm_link WHERE user_id = ?', [userId]),
+    imageMarks: await rawRows('SELECT * FROM image_mark WHERE user_id = ?', [userId]),
   };
 }
 

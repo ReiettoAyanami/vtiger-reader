@@ -1,0 +1,57 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.hint {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.clean {
+  margin: 0;
+  font: var(--mat-sys-body-large);
+  color: var(--mat-sys-on-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.clean.empty {
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+}
+
+/* The mail as received: on white, as its sender saw it; taller if the user drags it. */
+.raw {
+  width: 100%;
+  height: 480px;
+  min-height: 160px;
+  border: var(--app-border) solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: #fff;
+  resize: vertical;
+  overflow: auto;
+}
+
+.source {
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface);
+  font:
+    12px/1.5 'Roboto Mono',
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
