@@ -55,9 +55,8 @@ services:
       APP_URL: ${APP_URL:?APP_URL must be set in .env - the address the instance is opened at}
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set in .env - openssl rand -base64 32}
       CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
-      # The company CRM (each user links their own account from Settings), and the key that seals
-      # the users' CRM access keys in the database.
-      CRM_URL: ${CRM_URL:-}
+      # Seals the users' CRM access keys in the database (each user links their CRM, address
+      # included, from Settings).
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env - openssl rand -base64 32}
       # The first administrator: created at the first start, its password written to
       # to_delete.password.txt next to this file (delete it after reading). admin unless .env says

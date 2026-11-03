@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CrmError, READ_OPERATIONS, Webservice, endpointOf, kindOf } from '../../src/modules/crm/webservice.js';
+import { CrmError, READ_OPERATIONS, Webservice, crmBaseUrl, endpointOf, kindOf } from '../../src/modules/crm/webservice.js';
 import { FakeCrm } from '../support/fake-crm.js';
 
 function errorOf(promise: Promise<unknown>): Promise<CrmError> {
@@ -22,9 +22,22 @@ describe('endpointOf', () => {
     expect(endpointOf('https://example.com/crm/')).toBe('https://example.com/crm/webservice.php');
   });
 
-  it('refuses what is not an http(s) address', () => {
-    expect(() => endpointOf('x.opencrmitalia.com')).toThrow();
-    expect(() => endpointOf('ftp://x.example.com')).toThrow();
+  it('refuses what is not an https address', () => {
+    for (const url of ['x.opencrmitalia.com', 'ftp://x.example.com', 'http://x.opencrmitalia.com']) expect(() => endpointOf(url), url).toThrow();
+  });
+});
+
+describe('crmBaseUrl', () => {
+  it('the address as stored: https, no trailing / or /webservice.php, the case of the host lowered', () => {
+    expect(crmBaseUrl(' https://X.OpenCRMItalia.com/webservice.php ')).toBe('https://x.opencrmitalia.com');
+    expect(crmBaseUrl('https://example.com/crm//')).toBe('https://example.com/crm');
+    expect(crmBaseUrl('https://example.com:8443')).toBe('https://example.com:8443');
+  });
+
+  it('null for anything else: http, a user and password in it, a query, a fragment, no address', () => {
+    for (const url of ['http://example.com', 'https://me:pw@example.com', 'https://example.com/?a=1', 'https://example.com/#x', 'example.com', '']) {
+      expect(crmBaseUrl(url), url).toBeNull();
+    }
   });
 });
 

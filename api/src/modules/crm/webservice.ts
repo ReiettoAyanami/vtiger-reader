@@ -1,5 +1,5 @@
 /**
- * The vtiger / OpenCRM Italia webservice: one HTTP call, `<CRM_URL>/webservice.php`, and its answer.
+ * The vtiger / OpenCRM Italia webservice: one HTTP call, `<the CRM's address>/webservice.php`, and its answer.
  *
  * Every answer is `{ success: true, result }` or `{ success: false, error: { code, message } }`
  * (OpenCRM manual, "Collegarsi al CRM tramite API"). This file knows nothing of users or sessions
@@ -38,10 +38,11 @@ const POST_OPERATIONS: ReadonlySet<string> = new Set(['login', 'logout']);
  * - credentials: the CRM refused the username or the access key;
  * - denied: the CRM user may not do this (a module or a record outside their permissions);
  * - not-linked: the user has not linked a CRM account;
+ * - address: the CRM's address is not a public https one (checked before every login);
  * - refused: an operation outside READ_OPERATIONS (a bug, never sent);
  * - failed: any other error the CRM reports (its message is kept).
  */
-export type CrmErrorKind = 'unreachable' | 'session' | 'credentials' | 'denied' | 'not-linked' | 'refused' | 'failed';
+export type CrmErrorKind = 'unreachable' | 'session' | 'credentials' | 'denied' | 'not-linked' | 'address' | 'refused' | 'failed';
 
 export class CrmError extends Error {
   constructor(
@@ -71,7 +72,7 @@ export function kindOf(code: string, message: string): CrmErrorKind {
 export type Fetch = typeof fetch;
 
 export interface WebserviceOptions {
-  /** The CRM's address (CRM_URL), with or without a trailing / or /webservice.php. */
+  /** The CRM's address, with or without a trailing / or /webservice.php (crmBaseUrl). */
   url: string;
   /** The HTTP client (tests pass a fake CRM). */
   fetch?: Fetch;
@@ -81,11 +82,27 @@ export interface WebserviceOptions {
 
 export type Params = Record<string, string>;
 
-/** The webservice endpoint of a CRM address: `https://x.opencrmitalia.com/` → `.../webservice.php`. */
+/**
+ * A CRM's address as stored: https only, no user, query or fragment, without the trailing / or
+ * /webservice.php (`https://x.opencrmitalia.com/webservice.php` → `https://x.opencrmitalia.com`).
+ * Null when it is not one.
+ */
+export function crmBaseUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
+  const path = parsed.pathname.replace(/\/+$/, '').replace(/\/webservice\.php$/i, '').replace(/\/+$/, '');
+  return `${parsed.origin}${path}`;
+}
+
+/** The webservice endpoint of a CRM address. */
 export function endpointOf(url: string): string {
-  const base = url.trim().replace(/\/+$/, '').replace(/\/webservice\.php$/i, '');
-  const parsed = new URL(base);
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error(`CRM_URL must be an http(s) address, got "${url}"`);
+  const base = crmBaseUrl(url);
+  if (!base) throw new Error(`Not a CRM address (https://...): "${url}"`);
   return `${base}/webservice.php`;
 }
 

@@ -1,6 +1,6 @@
 /** GET /api/crm/link: the user's own CRM account. The access key never comes back. */
 export interface CrmLinkStatus {
-  /** The company CRM's address, null when the server has none yet (CRM_URL). */
+  /** The address of the CRM the user linked (each user sets their own), null when not linked. */
   crmUrl: string | null;
   linked: boolean;
   username: string | null;
@@ -13,6 +13,8 @@ export interface CrmLinkStatus {
 
 /** PUT /api/crm/link */
 export interface CrmLinkInput {
+  /** https, on the internet: e.g. https://nomecrm.opencrmitalia.com */
+  url: string;
   username: string;
   accessKey: string;
 }

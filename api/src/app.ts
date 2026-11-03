@@ -6,7 +6,7 @@ import { AccountLifecycle } from './modules/accounts/service.js';
 import { CrmClient } from './modules/crm/client.js';
 import { crmLinkRoutes } from './modules/crm/routes.js';
 import { CrmLinkService, crmProblem } from './modules/crm/service.js';
-import { CrmError, Webservice, type Fetch } from './modules/crm/webservice.js';
+import { CrmError, type Fetch } from './modules/crm/webservice.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { AdminService } from './modules/admin/service.js';
 import { createAuth } from './modules/identity/auth.js';
@@ -43,8 +43,8 @@ export interface BuildAppOptions {
    * waits, and the sleep of those waits, to see which ones are asked for).
    */
   auth?: Partial<AuthConfig> & { rateLimit?: boolean; signInDelay?: SignInDelay; signInSleep?: (ms: number) => Promise<void> };
-  /** The CRM over the environment's (tests: a fake CRM's address and its fetch). */
-  crm?: Partial<CrmConfig> & { fetch?: Fetch };
+  /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
+  crm?: Partial<CrmConfig> & { fetch?: Fetch; hostAllowed?: (host: string) => Promise<boolean> };
 }
 
 declare module 'fastify' {
@@ -150,15 +150,15 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     for (const method of [route.method].flat()) if (method !== 'HEAD') apiRoutes.push({ method, url: route.url });
   });
 
-  // The CRM: each user's own account, sealed in crm_link; one client for the whole server.
-  const crmConfig: CrmConfig = { ...loadConfig().crm, ...opts.crm };
-  const crmClient = crmConfig.url
-    ? new CrmClient(new Webservice({ url: crmConfig.url, ...(opts.crm?.fetch ? { fetch: opts.crm.fetch } : {}) }), {
-        credentialsOf: (owner) => links.credentialsOf(owner),
-        onLogin: (owner, login) => links.loggedIn(owner, login.crmUserId),
-      })
-    : null;
-  const links: CrmLinkService = new CrmLinkService(pool, new SecretBox(crmConfig.encryptionKey), crmConfig.url, crmClient);
+  // The CRM: each user's own CRM and account, sealed in crm_link; one client for the whole server.
+  const crmConfig: CrmConfig = { ...loadConfig().crm, ...(opts.crm?.encryptionKey ? { encryptionKey: opts.crm.encryptionKey } : {}) };
+  const crmClient = new CrmClient({
+    ...(opts.crm?.fetch ? { fetch: opts.crm.fetch } : {}),
+    ...(opts.crm?.hostAllowed ? { hostAllowed: opts.crm.hostAllowed } : {}),
+    credentialsOf: (owner) => links.credentialsOf(owner),
+    onLogin: (owner, login) => links.loggedIn(owner, login.crmUserId),
+  });
+  const links: CrmLinkService = new CrmLinkService(pool, new SecretBox(crmConfig.encryptionKey), crmClient);
 
   const settings = new SettingsService(pool);
   const accounts = new AccountLifecycle(pool, identity, settings);

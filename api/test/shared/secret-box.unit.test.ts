@@ -48,9 +48,4 @@ describe('CRM configuration', () => {
     expect(loadConfig({}).crm.encryptionKey).toEqual(DEV_ENCRYPTION_KEY);
   });
 
-  it('CRM_URL is optional, an address without its trailing /', () => {
-    expect(loadConfig({}).crm.url).toBeUndefined();
-    expect(loadConfig({ CRM_URL: 'https://x.opencrmitalia.com/' }).crm.url).toBe('https://x.opencrmitalia.com');
-    expect(() => loadConfig({ CRM_URL: 'x.opencrmitalia.com' })).toThrow(/CRM_URL/);
-  });
 });

@@ -2,6 +2,7 @@
   "name": "vtiger-reader-api",
   "version": "0.1.0",
   "private": true,
+  "license": "Unlicense",
   "description": "vtiger-reader HTTP API (Fastify + mysql2): a read-only frontend to a vtiger / OpenCRM Italia CRM",
   "type": "module",
   "engines": {

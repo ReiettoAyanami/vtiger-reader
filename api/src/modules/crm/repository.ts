@@ -3,6 +3,7 @@ import type { Queryable } from '../../db/pool.js';
 import type { Owner } from '../../shared/owner.js';
 
 export interface CrmLinkRow {
+  crmUrl: string;
   crmUsername: string;
   accessKeySealed: string;
   crmUserId: string;
@@ -13,13 +14,14 @@ export interface CrmLinkRow {
 /** The owner's CRM link, or null when they have none. */
 export async function findLink(db: Queryable, owner: Owner): Promise<CrmLinkRow | null> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT crm_username, access_key_sealed, crm_user_id, linked_at, last_login_at
+    `SELECT crm_url, crm_username, access_key_sealed, crm_user_id, linked_at, last_login_at
        FROM crm_link WHERE user_id = ?`,
     [owner.userId],
   );
   const row = rows[0];
   if (!row) return null;
   return {
+    crmUrl: String(row.crm_url),
     crmUsername: String(row.crm_username),
     accessKeySealed: String(row.access_key_sealed),
     crmUserId: String(row.crm_user_id),
@@ -32,14 +34,14 @@ export async function findLink(db: Queryable, owner: Owner): Promise<CrmLinkRow 
 export async function saveLink(
   db: Queryable,
   owner: Owner,
-  link: { crmUsername: string; accessKeySealed: string; crmUserId: string },
+  link: { crmUrl: string; crmUsername: string; accessKeySealed: string; crmUserId: string },
 ): Promise<void> {
   await db.query(
-    `INSERT INTO crm_link (user_id, crm_username, access_key_sealed, crm_user_id, last_login_at)
-     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP(3))
-     ON DUPLICATE KEY UPDATE crm_username = VALUES(crm_username), access_key_sealed = VALUES(access_key_sealed),
+    `INSERT INTO crm_link (user_id, crm_url, crm_username, access_key_sealed, crm_user_id, last_login_at)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP(3))
+     ON DUPLICATE KEY UPDATE crm_url = VALUES(crm_url), crm_username = VALUES(crm_username), access_key_sealed = VALUES(access_key_sealed),
        crm_user_id = VALUES(crm_user_id), last_login_at = VALUES(last_login_at), linked_at = CURRENT_TIMESTAMP(3)`,
-    [owner.userId, link.crmUsername, link.accessKeySealed, link.crmUserId],
+    [owner.userId, link.crmUrl, link.crmUsername, link.accessKeySealed, link.crmUserId],
   );
 }
 

@@ -70,10 +70,13 @@ export class Api {
   }
 }
 
-export async function makeApi(opts: { clock?: Clock; webDist?: string; crm?: FakeCrm; encryptionKey?: Buffer } = {}): Promise<Api> {
-  // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one,
-  // or none: never the CRM_URL of the environment.
-  const crm = opts.crm ? { url: opts.crm.url, fetch: opts.crm.fetch } : { url: undefined };
+export async function makeApi(
+  opts: { clock?: Clock; webDist?: string; crm?: FakeCrm; encryptionKey?: Buffer; hostAllowed?: (host: string) => Promise<boolean> } = {},
+): Promise<Api> {
+  // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one
+  // (its made-up host allowed), or no network at all: a test never calls a real address.
+  const fetch: typeof globalThis.fetch = opts.crm?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests')));
+  const crm = { fetch, hostAllowed: opts.hostAllowed ?? (async () => true) };
   const app = await buildApp({
     pool: testPool(),
     clock: opts.clock ?? fixedClock,

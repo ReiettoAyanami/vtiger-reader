@@ -4,78 +4,103 @@
   @if (failure(); as message) {
     <p class="form-error" role="alert">{{ message }}</p>
   } @else if (link.value(); as link) {
-    @if (!link.crmUrl) {
-      <p class="note no-crm">This server has no CRM yet: its administrator sets CRM_URL.</p>
-    } @else {
-      @if (link.linked && !changing()) {
-        <p class="linked">
-          Linked as <strong>{{ link.username }}</strong> to
-          <a [href]="link.crmUrl" target="_blank" rel="noopener noreferrer">{{ crmHost() }}</a>
-        </p>
-        <p class="note">
-          Since {{ link.linkedAt | date: 'd MMM y, HH:mm' }}
-          @if (link.lastLoginAt) {
-            · last login {{ link.lastLoginAt | date: 'd MMM y, HH:mm' }}
-          }
-        </p>
-        @if (link.problem; as problem) {
-          <p class="form-error problem" role="alert">{{ problem }}</p>
+    @if (link.linked && !changing()) {
+      <p class="linked">
+        Linked as <strong>{{ link.username }}</strong> to
+        <a [href]="link.crmUrl" target="_blank" rel="noopener noreferrer">{{ crmHost() }}</a>
+      </p>
+      <p class="note">
+        Since {{ link.linkedAt | date: 'd MMM y, HH:mm' }}
+        @if (link.lastLoginAt) {
+          · last login {{ link.lastLoginAt | date: 'd MMM y, HH:mm' }}
         }
-        @if (!session.user()?.impersonatedBy) {
-          <div class="actions">
-            <button mat-stroked-button type="button" class="unlink" (click)="unlink()">Unlink</button>
-            <button mat-stroked-button type="button" class="change" (click)="startChange()">Change account</button>
-          </div>
-        }
-      } @else if (session.user()?.impersonatedBy) {
-        <p class="note">You are viewing the app as {{ session.user()?.username }}: their CRM account is theirs to link.</p>
-      } @else {
-        <p class="note">
-          Your own account in the CRM, separate from this app's sign-in. The access key is in the CRM: your profile
-          (top right) → My Preferences → Access Key.
-        </p>
-        <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-          <mat-form-field appearance="outline">
-            <mat-label>CRM username</mat-label>
-            <input matInput formControlName="username" autocomplete="off" autocapitalize="none" spellcheck="false" />
-            <mat-error>{{ errorOf('username') }}</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Access key</mat-label>
-            <input
-              matInput
-              formControlName="accessKey"
-              [type]="keyShown() ? 'text' : 'password'"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck="false"
-            />
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              [attr.aria-label]="keyShown() ? 'Hide the access key' : 'Show the access key'"
-              (click)="keyShown.set(!keyShown())"
-            >
-              <mat-icon>{{ keyShown() ? 'visibility_off' : 'visibility' }}</mat-icon>
-            </button>
-            <mat-hint>Checked with the CRM before it is saved; never shown again</mat-hint>
-            <mat-error>{{ errorOf('accessKey') }}</mat-error>
-          </mat-form-field>
-
-          @if (formError(); as message) {
-            <p class="form-error" role="alert">{{ message }}</p>
-          }
-
-          <div class="actions">
-            @if (changing()) {
-              <button mat-button type="button" (click)="cancelChange()">Cancel</button>
-            }
-            <button mat-flat-button type="submit" [disabled]="saving()">{{ saving() ? 'Checking…' : 'Link' }}</button>
-          </div>
-        </form>
+      </p>
+      @if (link.problem; as problem) {
+        <p class="form-error problem" role="alert">{{ problem }}</p>
       }
+      @if (!session.user()?.impersonatedBy) {
+        <div class="actions">
+          <button mat-stroked-button type="button" class="unlink" (click)="unlink()">Unlink</button>
+          <button mat-stroked-button type="button" class="change" (click)="startChange()">
+            Change account
+          </button>
+        </div>
+      }
+    } @else if (session.user()?.impersonatedBy) {
+      <p class="note">
+        You are viewing the app as {{ session.user()?.username }}: their CRM account is theirs to
+        link.
+      </p>
+    } @else {
+      <p class="note">
+        Your own account in the CRM, separate from this app's sign-in. The access key is in the CRM:
+        your profile (top right) → My Preferences → Access Key.
+      </p>
+      <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <mat-form-field appearance="outline">
+          <mat-label>CRM address</mat-label>
+          <input
+            matInput
+            formControlName="url"
+            type="url"
+            inputmode="url"
+            placeholder="https://nomecrm.opencrmitalia.com"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <mat-hint>The address you open the CRM at, with https://</mat-hint>
+          <mat-error>{{ errorOf('url') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>CRM username</mat-label>
+          <input
+            matInput
+            formControlName="username"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <mat-error>{{ errorOf('username') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Access key</mat-label>
+          <input
+            matInput
+            formControlName="accessKey"
+            [type]="keyShown() ? 'text' : 'password'"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            [attr.aria-label]="keyShown() ? 'Hide the access key' : 'Show the access key'"
+            (click)="keyShown.set(!keyShown())"
+          >
+            <mat-icon>{{ keyShown() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          <mat-hint>Checked with the CRM before it is saved; never shown again</mat-hint>
+          <mat-error>{{ errorOf('accessKey') }}</mat-error>
+        </mat-form-field>
+
+        @if (formError(); as message) {
+          <p class="form-error" role="alert">{{ message }}</p>
+        }
+
+        <div class="actions">
+          @if (changing()) {
+            <button mat-button type="button" (click)="cancelChange()">Cancel</button>
+          }
+          <button mat-flat-button type="submit" [disabled]="saving()">
+            {{ saving() ? 'Checking…' : 'Link' }}
+          </button>
+        </div>
+      </form>
     }
   } @else {
     <p class="note">…</p>

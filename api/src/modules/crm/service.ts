@@ -1,14 +1,14 @@
 import type { Pool } from '../../db/pool.js';
-import { ProblemError, badRequest, conflict } from '../../shared/errors.js';
+import { ProblemError, badRequest } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import type { SecretBox } from '../../shared/secret-box.js';
 import type { CrmClient, CrmCredentials } from './client.js';
 import * as repo from './repository.js';
-import { CrmError } from './webservice.js';
+import { CrmError, crmBaseUrl } from './webservice.js';
 
 /** GET /api/crm/link: never the access key. */
 export interface CrmLinkStatus {
-  /** The company CRM's address (CRM_URL), null when the instance has none yet. */
+  /** The CRM the user linked (each user sets their own), null when not linked. */
   crmUrl: string | null;
   linked: boolean;
   username: string | null;
@@ -31,9 +31,7 @@ export class CrmLinkService {
   constructor(
     private readonly pool: Pool,
     private readonly box: SecretBox,
-    private readonly crmUrl: string | undefined,
-    /** Null when the instance has no CRM_URL. */
-    private readonly client: CrmClient | null,
+    private readonly client: CrmClient,
   ) {}
 
   /** The user's credentials, for the client; null when not linked or the key does not open. */
@@ -41,14 +39,14 @@ export class CrmLinkService {
     const link = await repo.findLink(this.pool, owner);
     if (!link) return null;
     const accessKey = this.box.open(link.accessKeySealed, keyContext(owner));
-    return accessKey === null ? null : { username: link.crmUsername, accessKey };
+    return accessKey === null ? null : { url: link.crmUrl, username: link.crmUsername, accessKey };
   }
 
   async status(owner: Owner): Promise<CrmLinkStatus> {
     const link = await repo.findLink(this.pool, owner);
     const readable = link ? this.box.open(link.accessKeySealed, keyContext(owner)) !== null : false;
     return {
-      crmUrl: this.crmUrl ?? null,
+      crmUrl: link?.crmUrl ?? null,
       linked: link !== null,
       username: link?.crmUsername ?? null,
       linkedAt: link?.linkedAt.toISOString() ?? null,
@@ -61,21 +59,25 @@ export class CrmLinkService {
   }
 
   /** Links the user's CRM account, or replaces it, after a successful login with it. */
-  async link(owner: Owner, input: { username: string; accessKey: string }): Promise<CrmLinkStatus> {
-    if (!this.client) throw conflict('crm-not-configured', 'This instance has no CRM yet: CRM_URL is not set on the server');
-    const credentials = { username: input.username.trim(), accessKey: input.accessKey.trim() };
+  async link(owner: Owner, input: { url: string; username: string; accessKey: string }): Promise<CrmLinkStatus> {
+    const url = crmBaseUrl(input.url);
+    if (!url) throw badRequest('An https address, such as https://nomecrm.opencrmitalia.com', 'url');
+    const credentials = { url, username: input.username.trim(), accessKey: input.accessKey.trim() };
     if (!credentials.username) throw badRequest('Required', 'username');
     if (!credentials.accessKey) throw badRequest('Required', 'accessKey');
     let crmUserId: string;
     try {
       crmUserId = (await this.client.login(credentials)).crmUserId;
     } catch (error) {
-      if (error instanceof CrmError && error.kind === 'credentials') {
-        throw badRequest('The CRM did not accept this username and access key', 'accessKey');
-      }
+      if (!(error instanceof CrmError)) throw error;
+      // Linking answers under the field to fix; the same errors later, on a ticket, are the CRM's.
+      if (error.kind === 'credentials') throw badRequest('The CRM did not accept this username and access key', 'accessKey');
+      if (error.kind === 'address') throw badRequest('Not a public https address: the server only calls CRMs on the internet', 'url');
+      if (error.kind === 'unreachable') throw badRequest(`No CRM answers at this address: ${error.message}`, 'url');
       throw error;
     }
     await repo.saveLink(this.pool, owner, {
+      crmUrl: url,
       crmUsername: credentials.username,
       accessKeySealed: this.box.seal(credentials.accessKey, keyContext(owner)),
       crmUserId,
@@ -86,7 +88,7 @@ export class CrmLinkService {
   }
 
   async unlink(owner: Owner): Promise<void> {
-    await this.client?.forget(owner);
+    await this.client.forget(owner);
     await repo.deleteLink(this.pool, owner);
   }
 
@@ -107,6 +109,8 @@ export function crmProblem(error: CrmError): ProblemError {
       return new ProblemError(503, 'crm-unreachable', 'The CRM is not reachable right now');
     case 'denied':
       return new ProblemError(403, 'crm-denied', 'Your CRM account may not read this');
+    case 'address':
+      return new ProblemError(409, 'crm-address', 'The CRM address is no longer a public https address: link the account again in Settings');
     case 'refused':
       return new ProblemError(500, 'crm-refused', 'The CRM link is read-only');
     default:

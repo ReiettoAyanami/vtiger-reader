@@ -55,7 +55,7 @@ describe('deleting a user', () => {
       null,
     );
     await rawRows(
-      "INSERT INTO crm_link (user_id, crm_username, access_key_sealed, crm_user_id) VALUES (?, 'leaving', 'v1.a.b.c', '19x9')",
+      "INSERT INTO crm_link (user_id, crm_url, crm_username, access_key_sealed, crm_user_id) VALUES (?, 'https://crm.example.invalid', 'leaving', 'v1.a.b.c', '19x9')",
       [id],
     );
     await api.app.accounts.deleteUser(id);

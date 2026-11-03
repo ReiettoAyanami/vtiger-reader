@@ -13,7 +13,7 @@ The stock vtiger interface is slow. vtiger-reader shows the same tickets faster,
 - **API**: Node 22, TypeScript, Fastify, mysql2, Better Auth (`api/`)
 - **Web**: Angular 21, Angular Material 3, no SSR (`web/`)
 - **Database**: MySQL 8 (users and preferences only)
-- **CRM**: the vtiger webservice API (`/webservice.php`), with each user's own username and access key
+- **CRM**: the vtiger webservice API (`/webservice.php`); each user links their own CRM from Settings: its address, their username and access key
 
 ## Development
 
@@ -40,7 +40,7 @@ docker compose -f compose.dev.yaml exec web npx ng test --watch=false
 ## Production
 
 ```bash
-cp .env.example .env          # APP_URL, AUTH_SECRET, DB_PASSWORD, CRM_URL...
+cp .env.example .env          # APP_URL, AUTH_SECRET, DB_PASSWORD, ENCRYPTION_KEY...
 docker compose -f compose.prod.yaml up -d --build
 ```
 
@@ -49,3 +49,7 @@ The app listens on `APP_PORT` (8080). Put it behind a reverse proxy with https: 
 ## Versions
 
 `<prefix><year>.<backend>.<frontend>.<build>`, e.g. `dev26.0.0.0000`. `dev` versions live on `dev` and on work branches named after their version; `a` (alpha), `b` (beta) and `v` (release) only on `main`, where the CI publishes the image to `ghcr.io`.
+
+## License
+
+Public domain, under [the Unlicense](LICENSE): copy, change, use and sell it as you like, with no conditions.

@@ -1,7 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,17 +28,26 @@ function messageFor(errors: ValidationErrors | null): string | null {
   return null;
 }
 
-const required = (control: AbstractControl) => (String(control.value ?? '').trim() ? null : { required: true });
+const required = (control: AbstractControl) =>
+  String(control.value ?? '').trim() ? null : { required: true };
 
 /**
  * The user's own CRM account (plan 2.2): not the app's sign-in, a second account the app works
- * with. The server logs in with the username and access key before saving them; the key is kept
- * sealed on the server and never shown again. While an administrator views the app as the user, the
+ * with. The CRM's address is set here too, not in the server's .env (lenzi, 2026-11-03). The server
+ * logs in with the three before saving them; the key is kept sealed on the server and never shown
+ * again. While an administrator views the app as the user, the
  * link is only shown: it is the user's own.
  */
 @Component({
   selector: 'app-crm-link-settings',
-  imports: [DatePipe, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, ReactiveFormsModule],
+  imports: [
+    DatePipe,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    ReactiveFormsModule,
+  ],
   templateUrl: './crm-link-settings.html',
   styleUrl: './crm-link-settings.css',
 })
@@ -63,6 +78,7 @@ export class CrmLinkSettings {
   });
 
   protected readonly form = new FormGroup({
+    url: new FormControl('', { nonNullable: true, validators: [required] }),
     username: new FormControl('', { nonNullable: true, validators: [required] }),
     accessKey: new FormControl('', { nonNullable: true, validators: [required] }),
   });
@@ -78,7 +94,8 @@ export class CrmLinkSettings {
   }
 
   protected startChange(): void {
-    this.form.reset({ username: this.link.value()?.username ?? '', accessKey: '' });
+    const link = this.link.value();
+    this.form.reset({ url: link?.crmUrl ?? '', username: link?.username ?? '', accessKey: '' });
     this.formError.set(null);
     this.changing.set(true);
   }
@@ -94,13 +111,15 @@ export class CrmLinkSettings {
       this.form.markAllAsTouched();
       return;
     }
-    const { username, accessKey } = this.form.getRawValue();
+    const { url, username, accessKey } = this.form.getRawValue();
     this.saving.set(true);
     this.formError.set(null);
     try {
-      const saved = await firstValueFrom(this.api.link({ username: username.trim(), accessKey: accessKey.trim() }));
+      const saved = await firstValueFrom(
+        this.api.link({ url: url.trim(), username: username.trim(), accessKey: accessKey.trim() }),
+      );
       this.link.set(saved);
-      this.form.reset({ username: '', accessKey: '' });
+      this.form.reset({ url: '', username: '', accessKey: '' });
       this.keyShown.set(false);
       this.changing.set(false);
       this.snackBar.open(`CRM account linked: ${saved.username}`, undefined, { duration: 4000 });
@@ -116,7 +135,8 @@ export class CrmLinkSettings {
       ConfirmDialog,
       {
         title: 'Unlink the CRM account?',
-        message: 'The saved access key is deleted. Tickets cannot be read until you link an account again.',
+        message:
+          'The saved access key is deleted. Tickets cannot be read until you link an account again.',
         confirm: 'Unlink',
         action: () => this.api.unlink(),
       },
@@ -138,7 +158,9 @@ export class CrmLinkSettings {
     });
     if (error.fieldErrors.length === 0 || unplaced.length > 0) {
       const detail = unplaced.map((e) => e.message).join('; ') || error.detail || error.title;
-      this.formError.set(`Could not link the account: ${detail}${error.status ? ` (${error.status})` : ''}`);
+      this.formError.set(
+        `Could not link the account: ${detail}${error.status ? ` (${error.status})` : ''}`,
+      );
     }
   }
 }

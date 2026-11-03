@@ -20,7 +20,9 @@ describe('CrmLinkApi', () => {
   let backend: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     api = TestBed.inject(CrmLinkApi);
     backend = TestBed.inject(HttpTestingController);
   });
@@ -35,11 +37,21 @@ describe('CrmLinkApi', () => {
     expect(await result).toEqual(LINKED);
   });
 
-  it('links with a username and an access key', async () => {
-    const result = firstValueFrom(api.link({ username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }));
+  it('links with an address, a username and an access key', async () => {
+    const result = firstValueFrom(
+      api.link({
+        url: 'https://crm.example.invalid',
+        username: 'mario.rossi',
+        accessKey: 'AbCdEf0123456789',
+      }),
+    );
     const req = backend.expectOne('/api/crm/link');
     expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ username: 'mario.rossi', accessKey: 'AbCdEf0123456789' });
+    expect(req.request.body).toEqual({
+      url: 'https://crm.example.invalid',
+      username: 'mario.rossi',
+      accessKey: 'AbCdEf0123456789',
+    });
     req.flush(LINKED);
     expect(await result).toEqual(LINKED);
   });

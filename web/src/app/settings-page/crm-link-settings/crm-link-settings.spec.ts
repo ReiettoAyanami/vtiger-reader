@@ -15,7 +15,14 @@ import { CrmLinkSettings } from './crm-link-settings';
 
 const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null };
 const CRM = 'https://crm.example.invalid';
-const UNLINKED: CrmLinkStatus = { crmUrl: CRM, linked: false, username: null, linkedAt: null, lastLoginAt: null, problem: null };
+const UNLINKED: CrmLinkStatus = {
+  crmUrl: null,
+  linked: false,
+  username: null,
+  linkedAt: null,
+  lastLoginAt: null,
+  problem: null,
+};
 const LINKED: CrmLinkStatus = {
   crmUrl: CRM,
   linked: true,
@@ -65,8 +72,10 @@ describe('CrmLinkSettings', () => {
     backend.expectOne({ method: 'GET', url: '/api/crm/link' }).flush(status);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
-    const input = (field: string) => element.querySelector<HTMLInputElement>(`input[formControlName="${field}"]`);
-    const text = (selector: string) => (element.querySelector(selector)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const input = (field: string) =>
+      element.querySelector<HTMLInputElement>(`input[formControlName="${field}"]`);
+    const text = (selector: string) =>
+      (element.querySelector(selector)?.textContent ?? '').replace(/\s+/g, ' ').trim();
     return {
       element,
       input,
@@ -81,7 +90,8 @@ describe('CrmLinkSettings', () => {
         element.querySelector<HTMLButtonElement>(selector)!.click();
         await fixture.whenStable();
       },
-      errorUnder: (field: string) => input(field)!.closest('mat-form-field')!.querySelector('mat-error')?.textContent?.trim(),
+      errorUnder: (field: string) =>
+        input(field)!.closest('mat-form-field')!.querySelector('mat-error')?.textContent?.trim(),
     };
   }
 
@@ -95,13 +105,19 @@ describe('CrmLinkSettings', () => {
     expect(page.text('.note')).toContain('My Preferences → Access Key');
   });
 
-  it('links: sends both, trimmed, then shows the account', async () => {
+  it('links: sends the three, trimmed, then shows the account', async () => {
     const page = await render(UNLINKED);
+    expect(page.input('url')!.type).toBe('url');
+    await page.type('url', ' https://crm.example.invalid ');
     await page.type('username', ' mario.rossi ');
     await page.type('accessKey', 'AbCdEf0123456789 ');
     await page.click('button[type="submit"]');
     const req = backend.expectOne({ method: 'PUT', url: '/api/crm/link' });
-    expect(req.request.body).toEqual({ username: 'mario.rossi', accessKey: 'AbCdEf0123456789' });
+    expect(req.request.body).toEqual({
+      url: 'https://crm.example.invalid',
+      username: 'mario.rossi',
+      accessKey: 'AbCdEf0123456789',
+    });
     req.flush(LINKED);
     await vi.waitFor(() => expect(snacks).toEqual(['CRM account linked: mario.rossi']));
     await page.settle();
@@ -111,6 +127,7 @@ describe('CrmLinkSettings', () => {
 
   it('a key the CRM refuses: the reason under the key, nothing linked', async () => {
     const page = await render(UNLINKED);
+    await page.type('url', CRM);
     await page.type('username', 'mario.rossi');
     await page.type('accessKey', 'wrong');
     await page.click('button[type="submit"]');
@@ -120,31 +137,71 @@ describe('CrmLinkSettings', () => {
         title: 'Bad Request',
         status: 400,
         detail: 'The CRM did not accept this username and access key',
-        errors: [{ field: 'accessKey', message: 'The CRM did not accept this username and access key' }],
+        errors: [
+          { field: 'accessKey', message: 'The CRM did not accept this username and access key' },
+        ],
       },
       { status: 400, statusText: 'Bad Request' },
     );
-    await vi.waitFor(() => expect(page.errorUnder('accessKey')).toBe('The CRM did not accept this username and access key'));
+    await vi.waitFor(() =>
+      expect(page.errorUnder('accessKey')).toBe(
+        'The CRM did not accept this username and access key',
+      ),
+    );
     expect(snacks).toEqual([]);
   });
 
-  it('a CRM that does not answer: said above the button', async () => {
+  it('an address that is not a public CRM: the reason under the address', async () => {
     const page = await render(UNLINKED);
+    await page.type('url', 'https://192.168.1.10');
     await page.type('username', 'mario.rossi');
     await page.type('accessKey', 'AbCdEf0123456789');
     await page.click('button[type="submit"]');
-    backend.expectOne('/api/crm/link').flush(
-      { type: 'urn:vtiger-reader:problem:crm-unreachable', title: 'Service Unavailable', status: 503, detail: 'The CRM is not reachable right now', errors: [] },
-      { status: 503, statusText: 'Service Unavailable' },
-    );
+    const message = 'Not a public https address: the server only calls CRMs on the internet';
+    backend
+      .expectOne('/api/crm/link')
+      .flush(
+        {
+          type: 'urn:vtiger-reader:problem:validation',
+          title: 'Bad Request',
+          status: 400,
+          detail: message,
+          errors: [{ field: 'url', message }],
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    await vi.waitFor(() => expect(page.errorUnder('url')).toBe(message));
+  });
+
+  it('a server error: said above the button', async () => {
+    const page = await render(UNLINKED);
+    await page.type('url', CRM);
+    await page.type('username', 'mario.rossi');
+    await page.type('accessKey', 'AbCdEf0123456789');
+    await page.click('button[type="submit"]');
+    backend
+      .expectOne('/api/crm/link')
+      .flush(
+        {
+          type: 'urn:vtiger-reader:problem:crm-error',
+          title: 'Bad Gateway',
+          status: 502,
+          detail: 'CRM: something broke',
+          errors: [],
+        },
+        { status: 502, statusText: 'Bad Gateway' },
+      );
     await vi.waitFor(() =>
-      expect(page.text('.form-error')).toBe('Could not link the account: The CRM is not reachable right now (503)'),
+      expect(page.text('.form-error')).toBe(
+        'Could not link the account: CRM: something broke (502)',
+      ),
     );
   });
 
   it('sends nothing while a field is empty', async () => {
     const page = await render(UNLINKED);
     await page.click('button[type="submit"]');
+    expect(page.errorUnder('url')).toBe('Required');
     expect(page.errorUnder('username')).toBe('Required');
     expect(page.errorUnder('accessKey')).toBe('Required');
   });
@@ -157,12 +214,15 @@ describe('CrmLinkSettings', () => {
     expect(page.element.querySelector('.unlink')).not.toBeNull();
   });
 
-  it('Change account: the form with the username filled in and Cancel', async () => {
+  it('Change account: the form with the address and the username filled in, and Cancel', async () => {
     const page = await render(LINKED);
     await page.click('.change');
+    expect(page.input('url')!.value).toBe(CRM);
     expect(page.input('username')!.value).toBe('mario.rossi');
     expect(page.input('accessKey')!.value).toBe('');
-    const cancel = [...page.element.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cancel')!;
+    const cancel = [...page.element.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Cancel',
+    )!;
     cancel.click();
     await page.settle();
     expect(page.element.querySelector('form')).toBeNull();
@@ -172,8 +232,12 @@ describe('CrmLinkSettings', () => {
     const page = await render(LINKED);
     await page.click('.unlink');
     expect(dialogs.map((d) => d.title)).toEqual(['Unlink the CRM account?']);
-    backend.expectOne({ method: 'DELETE', url: '/api/crm/link' }).flush(null, { status: 204, statusText: 'No Content' });
-    await vi.waitFor(() => backend.expectOne({ method: 'GET', url: '/api/crm/link' }).flush(UNLINKED));
+    backend
+      .expectOne({ method: 'DELETE', url: '/api/crm/link' })
+      .flush(null, { status: 204, statusText: 'No Content' });
+    await vi.waitFor(() =>
+      backend.expectOne({ method: 'GET', url: '/api/crm/link' }).flush(UNLINKED),
+    );
     await vi.waitFor(() => expect(snacks).toEqual(['CRM account unlinked']));
     await page.settle();
     expect(page.input('username')).not.toBeNull();
@@ -185,12 +249,6 @@ describe('CrmLinkSettings', () => {
     await page.click('.unlink');
     expect(dialogs).toHaveLength(1);
     expect(snacks).toEqual([]);
-  });
-
-  it('a server without a CRM says so, and asks for nothing', async () => {
-    const page = await render({ ...UNLINKED, crmUrl: null });
-    expect(page.text('.no-crm')).toBe('This server has no CRM yet: its administrator sets CRM_URL.');
-    expect(page.element.querySelector('form')).toBeNull();
   });
 
   it("while an administrator views the app as the user: shown, not changed; it is the user's own", async () => {

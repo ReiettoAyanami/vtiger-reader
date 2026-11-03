@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CrmClient, Semaphore, type CrmCredentials } from '../../src/modules/crm/client.js';
-import { CrmError, Webservice } from '../../src/modules/crm/webservice.js';
+import { CrmError } from '../../src/modules/crm/webservice.js';
 import { ownerOf, type Owner } from '../../src/shared/owner.js';
 import { FakeCrm } from '../support/fake-crm.js';
 
@@ -8,36 +8,51 @@ const MARIO = ownerOf(1);
 const ANNA = ownerOf(2);
 const NOBODY = ownerOf(3);
 
+const URL_ = new FakeCrm().url;
 const ACCOUNTS = new Map<number, CrmCredentials>([
-  [1, { username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }],
-  [2, { username: 'anna.bianchi', accessKey: 'ZyXwVu9876543210' }],
+  [1, { url: URL_, username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }],
+  [2, { url: URL_, username: 'anna.bianchi', accessKey: 'ZyXwVu9876543210' }],
 ]);
 
-function setup(options: { now?: () => number } = {}) {
+function setup(options: { now?: () => number; hostAllowed?: (host: string) => Promise<boolean> } = {}) {
   const crm = new FakeCrm();
   const logins: Array<[number, string]> = [];
-  const client = new CrmClient(new Webservice({ url: crm.url, fetch: crm.fetch }), {
+  const hosts: string[] = [];
+  const client = new CrmClient({
+    fetch: crm.fetch,
+    hostAllowed: async (host) => (hosts.push(host), options.hostAllowed ? options.hostAllowed(host) : true),
     credentialsOf: async (owner: Owner) => ACCOUNTS.get(owner.userId) ?? null,
     onLogin: async (owner, login) => {
       logins.push([owner.userId, login.crmUserId]);
     },
     ...(options.now ? { now: options.now } : {}),
   });
-  return { crm, client, logins };
+  return { crm, client, logins, hosts };
 }
 
 describe('CrmClient', () => {
   it('logs in with md5(challenge + access key), and says when the CRM refuses the key', async () => {
     const { crm, client } = setup();
-    expect(await client.login({ username: 'mario.rossi', accessKey: 'AbCdEf0123456789' })).toEqual({
+    expect(await client.login({ url: URL_, username: 'mario.rossi', accessKey: 'AbCdEf0123456789' })).toEqual({
       sessionName: expect.any(String),
       crmUserId: '19x5',
     });
     // The access key itself never travels: only its hash with the challenge.
     expect(JSON.stringify(crm.calls)).not.toContain('AbCdEf0123456789');
-    const error = await client.login({ username: 'mario.rossi', accessKey: 'wrong' }).catch((e: unknown) => e);
+    const error = await client.login({ url: URL_, username: 'mario.rossi', accessKey: 'wrong' }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(CrmError);
     expect((error as CrmError).kind).toBe('credentials');
+  });
+
+  it('calls only public https addresses: checked before every login, nothing sent otherwise', async () => {
+    const { crm, client, hosts } = setup({ hostAllowed: async (host) => host !== 'intranet.example.invalid' });
+    for (const url of ['http://crm.example.invalid', 'https://intranet.example.invalid', 'not an address']) {
+      const error = await client.login({ url, username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }).catch((e: unknown) => e);
+      expect((error as CrmError).kind, url).toBe('address');
+    }
+    expect(crm.calls).toEqual([]);
+    await client.read(MARIO, 'listtypes');
+    expect(hosts).toEqual(['intranet.example.invalid', 'crm.example.invalid']);
   });
 
   it('works in each user’s own session, reused while fresh, renewed after 10 minutes', async () => {
