@@ -1,0 +1,37 @@
+<!-- The outlet never moves: hiding the app around a page (bare) must not create the page again. -->
+<mat-sidenav-container class="shell">
+  <!-- Opened, the focus goes to the current page's entry, not to the first one: a focused entry is
+       drawn highlighted (substance-tracker, lenzi 2026-10-03). -->
+  <mat-sidenav
+    #sidebar
+    class="sidebar"
+    fixedInViewport
+    [fixedTopGap]="8"
+    [fixedBottomGap]="8"
+    mode="over"
+    autoFocus='[aria-current="page"]'
+  >
+    @if (!bare()) {
+      <app-sidebar (navigated)="navigated(sidebar)" />
+    }
+  </mat-sidenav>
+
+  <mat-sidenav-content [class.impersonating]="impersonating()">
+    @if (!bare()) {
+      <!-- An administrator acting as a user: a bar above the top bar that cannot be closed. -->
+      @if (impersonating()) {
+        <app-viewing-as-bar />
+      }
+      <mat-toolbar>
+        <button mat-icon-button type="button" class="menu" aria-label="Menu" (click)="openSidebar(sidebar, $event)">
+          <mat-icon>menu</mat-icon>
+        </button>
+        <span class="title">{{ title() }}</span>
+      </mat-toolbar>
+    }
+
+    <router-outlet />
+  </mat-sidenav-content>
+</mat-sidenav-container>
+
+<app-version-label />

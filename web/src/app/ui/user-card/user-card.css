@@ -1,0 +1,83 @@
+:host {
+  display: block;
+}
+
+mat-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  /* the ⋮ button is 48 px: the row keeps its height with or without it */
+  min-height: 48px;
+}
+
+.avatar {
+  flex: none;
+  color: var(--mat-sys-primary);
+}
+
+.username {
+  flex: 1;
+  min-width: 0;
+  font: var(--mat-sys-title-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Small labels: the role, the status, "You". */
+.tag {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font: var(--mat-sys-label-medium);
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.you {
+  flex: none;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.status-blocked {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.status-no-password {
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+}
+
+.created {
+  margin-left: auto;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* A blocked user's card steps back a little. */
+mat-card.blocked .username,
+mat-card.blocked .email {
+  opacity: 0.7;
+}

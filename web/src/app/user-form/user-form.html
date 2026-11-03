@@ -1,0 +1,80 @@
+@if (showTitle()) {
+  <h2 class="title">{{ user() ? 'Edit ' + user()!.username : 'New user' }}</h2>
+}
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  @if (!user()) {
+    <!-- dynamic: a hint of two lines on a phone pushes the next field down instead of covering it -->
+    <mat-form-field appearance="outline" class="username" subscriptSizing="dynamic">
+      <mat-label>Username</mat-label>
+      <input matInput formControlName="username" autocomplete="off" autocapitalize="none" spellcheck="false" />
+      <mat-hint>Letters, digits, - and _; it never changes (it is in their address)</mat-hint>
+      <mat-error>{{ errorOf('username') }}</mat-error>
+    </mat-form-field>
+  }
+
+  <mat-form-field appearance="outline">
+    <mat-label>Email</mat-label>
+    <input matInput formControlName="email" type="email" autocomplete="off" spellcheck="false" />
+    <mat-error>{{ errorOf('email') }}</mat-error>
+  </mat-form-field>
+
+  <div class="role">
+    <span class="label" id="user-form-role">Role</span>
+    <mat-button-toggle-group formControlName="role" aria-labelledby="user-form-role" hideSingleSelectionIndicator>
+      <mat-button-toggle value="user">User</mat-button-toggle>
+      <mat-button-toggle value="admin">Administrator</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <mat-form-field appearance="outline" class="password" subscriptSizing="dynamic">
+    <mat-label>{{ user() ? 'New password' : 'Password' }}</mat-label>
+    <input
+      matInput
+      formControlName="password"
+      [type]="passwordShown() ? 'text' : 'password'"
+      autocomplete="new-password"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+    <button
+      mat-icon-button
+      matSuffix
+      type="button"
+      [attr.aria-label]="passwordShown() ? 'Hide the password' : 'Show the password'"
+      (click)="passwordShown.set(!passwordShown())"
+    >
+      <mat-icon>{{ passwordShown() ? 'visibility_off' : 'visibility' }}</mat-icon>
+    </button>
+    <mat-hint>{{ user() ? 'Empty: it stays as it is. ' : '' }}At least 12 characters, a digit and a special character</mat-hint>
+    <mat-error>{{ errorOf('password') }}</mat-error>
+  </mat-form-field>
+
+  <div class="password-tools">
+    <button mat-stroked-button type="button" class="generate" [disabled]="generating()" (click)="generate()">
+      <mat-icon>password</mat-icon>
+      Generate
+    </button>
+    <button mat-button type="button" class="copy" [disabled]="!form.controls.password.value" (click)="copy()">
+      <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+      {{ copied() ? 'Copied' : 'Copy' }}
+    </button>
+  </div>
+  @if (passwordShown() && form.controls.password.value) {
+    <p class="once">Pass it on now: once saved, nobody can read it again.</p>
+  }
+
+  @if (user()) {
+    <mat-slide-toggle formControlName="blocked" class="blocked">Blocked</mat-slide-toggle>
+    <p class="note">A blocked user cannot sign in; their data stays.</p>
+  }
+
+  @if (formError(); as message) {
+    <p class="form-error" role="alert">{{ message }}</p>
+  }
+
+  <div class="actions">
+    <button mat-button type="button" (click)="cancelled.emit()">Cancel</button>
+    <button mat-flat-button type="submit" [disabled]="saving()">{{ user() ? 'Save' : 'Create' }}</button>
+  </div>
+</form>

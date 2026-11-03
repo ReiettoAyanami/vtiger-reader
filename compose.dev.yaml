@@ -1,0 +1,93 @@
+# Development stack: MySQL + API (tsx watch) + Angular dev server.
+# Everything runs inside containers; the host only needs Docker.
+#   docker compose -f compose.dev.yaml up -d
+# Values come from .env (copy .env.example to .env first).
+
+name: vtiger-reader-dev
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is not set - copy .env.example to .env}
+      MYSQL_DATABASE: ${DB_NAME:-vtiger_reader}
+      MYSQL_USER: ${DB_USER:-vtiger}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set - copy .env.example to .env}
+    volumes:
+      - db-data:/var/lib/mysql
+      # Dev only: creates ${DB_NAME}_test for the API tests (runs once, on an empty volume).
+      - ./db/dev-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${DB_HOST_PORT:-3306}:3306"
+    healthcheck:
+      # TCP on 127.0.0.1: the temporary init server listens only on the socket, so the
+      # container turns healthy only once the real server (and the init scripts) are done.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-c", "npm install && npm run dev"]
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      # API_DB_NAME (optional) points the dev API at another database; unset, the API uses DB_NAME.
+      DB_NAME: ${API_DB_NAME:-${DB_NAME:-vtiger_reader}}
+      DB_USER: ${DB_USER:-vtiger}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set - copy .env.example to .env}
+      # Pinned to DB_NAME (the database db/dev-init created), not to the API's current one.
+      TEST_DB_NAME: ${TEST_DB_NAME:-${DB_NAME:-vtiger_reader}_test}
+      # Tests only: root may create databases, for the test of a new installation (ensureDatabase).
+      TEST_DB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      PORT: "3000"
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Sign-in: the browser opens the app on the Angular dev server, whose proxy
+      # forwards /api here. AUTH_SECRET is the API's development one unless set. The cookie prefix
+      # differs from production's: on one machine localhost:4200 and :8080 share their cookies.
+      APP_URL: ${DEV_APP_URL:-http://localhost:4200}
+      COOKIE_PREFIX: vtiger-reader-dev
+      # The first administrator: created at startup while the database has none, its password written
+      # to to_delete.password.txt at the project root (gitignored; delete it after reading). admin
+      # unless .env says otherwise: its pages are /admin, its admin panel /admin/admin.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@dev.invalid}
+      FIRST_ADMIN_PASSWORD_FILE: /project/to_delete.password.txt
+      # The bind mount comes from Windows: file events do not reach the container,
+      # so tsx watch (chokidar) polls instead.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
+    volumes:
+      - ./api:/app
+      # Linux node_modules live in a named volume, never on the Windows host.
+      - api-node-modules:/app/node_modules
+      # The project root, where the first administrator's password file is written.
+      - .:/project
+    ports:
+      - "${API_HOST_PORT:-3001}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    # Dev server options on the command line. The one Docker-specific file in web/ is
+    # proxy.conf.json: /api goes to the api service (http://api:3000).
+    command: ["sh", "-c", "npm install && npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --proxy-config proxy.conf.json"]
+    environment:
+      NG_CLI_ANALYTICS: "false"
+    volumes:
+      - ./web:/app
+      - web-node-modules:/app/node_modules
+    ports:
+      - "${WEB_HOST_PORT:-4200}:4200"
+
+volumes:
+  db-data:
+  api-node-modules:
+  web-node-modules:

@@ -1,0 +1,5 @@
+<div class="bar" role="status">
+  <mat-icon aria-hidden="true">visibility</mat-icon>
+  <span class="text">Viewing as <strong>{{ session.user()?.username }}</strong></span>
+  <button mat-button type="button" class="exit" [disabled]="leaving()" (click)="exit()">Exit</button>
+</div>

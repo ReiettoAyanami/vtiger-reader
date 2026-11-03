@@ -1,0 +1,11 @@
+# Normalise text files in the repository
+* text=auto
+
+# Files read inside Linux containers: always LF, also in a Windows working tree
+*.sh          text eol=lf
+*.sql         text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+Dockerfile    text eol=lf
+gradlew       text eol=lf
+.env.example  text eol=lf

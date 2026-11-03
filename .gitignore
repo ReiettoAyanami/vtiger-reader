@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+dist/
+.angular/
+
+# Local environment and secrets (keep only the template)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Local database dumps (never committed)
+db/backup/
+
+# The first administrator's password, written at the first start (delete it after reading)
+to_delete.password.txt

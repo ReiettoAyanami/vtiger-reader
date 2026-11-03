@@ -1,0 +1,39 @@
+.page {
+  box-sizing: border-box;
+  min-height: 60dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--mat-sys-surface-container-low);
+  border: var(--app-border) solid var(--mat-sys-outline-variant); /* like every surface (styles.css, "Borders") */
+}
+
+.code {
+  margin: 0;
+  font: var(--mat-sys-display-small);
+  color: var(--mat-sys-primary);
+}
+
+.title {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+  color: var(--mat-sys-on-surface);
+}
+
+.text {
+  margin: 0 0 12px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}

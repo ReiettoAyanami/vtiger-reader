@@ -1,0 +1,24 @@
+<main class="admin">
+  @if (users.hasValue()) {
+    <div class="cards">
+      @for (user of users.value(); track user.id) {
+        <app-user-card
+          [user]="user"
+          [self]="user.id === selfId()"
+          (edit)="edit(user)"
+          (impersonate)="impersonate(user)"
+          (remove)="remove(user)"
+        />
+      }
+    </div>
+  } @else if (error(); as failure) {
+    <p class="error">
+      Could not load the users: {{ failure.title }}
+      @if (failure.status) {
+        ({{ failure.status }})
+      }
+    </p>
+  }
+</main>
+
+<app-add-button label="Add user" (pressed)="add()" />

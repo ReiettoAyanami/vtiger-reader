@@ -1,0 +1,55 @@
+<main class="settings-page">
+  @if (failure(); as failure) {
+    <p class="message error">{{ failure }}</p>
+  } @else if (settings.hasValue()) {
+    <form class="form" [formGroup]="form" (ngSubmit)="save()">
+      <mat-form-field class="language" appearance="outline">
+        <mat-label>Language</mat-label>
+        <mat-select formControlName="language">
+          @for (language of languages; track language.code) {
+            <mat-option [value]="language.code">{{ language.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>More languages later.</mat-hint>
+        @if (errorOf('language'); as error) {
+          <mat-error>{{ error }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field class="timezone" appearance="outline">
+        <mat-label>Time zone</mat-label>
+        <input matInput formControlName="timezone" [matAutocomplete]="zones" autocomplete="off" />
+        <mat-autocomplete #zones="matAutocomplete">
+          @for (zone of zoneChoices(); track zone) {
+            <mat-option [value]="zone">{{ zone }}</mat-option>
+          }
+        </mat-autocomplete>
+        <mat-hint>The CRM's dates and times are shown in it.</mat-hint>
+        @if (errorOf('timezone'); as error) {
+          <mat-error>{{ error }}</mat-error>
+        }
+      </mat-form-field>
+
+      @if (formError(); as error) {
+        <p class="form-error">{{ error }}</p>
+      }
+
+      <div class="actions">
+        <button mat-flat-button type="submit" [disabled]="saving() || form.pristine">Save</button>
+      </div>
+    </form>
+  } @else {
+    <p class="message">…</p>
+  }
+
+  <!-- The user's own password and sessions: apart from the preferences. -->
+  <app-account-settings />
+
+  <!-- A choice of this browser, not a setting of the API: outside the form, applied at once. -->
+  <section class="display" aria-label="Display">
+    <mat-slide-toggle [checked]="appearance.reduceTransparency()" (change)="appearance.setReduceTransparency($event.checked)">
+      Reduce transparency
+    </mat-slide-toggle>
+    <p class="note">Windows, menus and bars become solid, without blurring what is under them. Remembered by this browser.</p>
+  </section>
+</main>

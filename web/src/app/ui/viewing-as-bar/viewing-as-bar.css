@@ -1,0 +1,30 @@
+/* A bar that stands out from every page: the tertiary colours, never the glass of the top bar. */
+:host {
+  display: block;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  height: var(--app-viewing-as-height, 44px);
+  padding: 0 8px 0 16px;
+  border-radius: 16px;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+  font: var(--mat-sys-body-medium);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exit {
+  --mat-button-text-label-text-color: var(--mat-sys-on-tertiary-container);
+  font-weight: 700;
+}

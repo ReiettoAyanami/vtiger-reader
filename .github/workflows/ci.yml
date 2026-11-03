@@ -1,0 +1,197 @@
+# CI, as in substance-tracker: the version rules, the API's and the web's tests, npm audit and the
+# image built on every push, and published (to the GitHub Container Registry, with a GitHub Release)
+# only from main with a final version (a alpha, b beta, v release).
+name: CI
+
+on:
+  push:
+    branches: [main, 'dev*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: Version rules
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        name: The version of this commit, and the rules of its branch
+        run: |
+          version=$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" api/src/version.ts)
+          level=$(sed -n "s/^export const API_LEVEL = \([0-9]*\);$/\1/p" api/src/version.ts)
+          # The pages carry a copy (web/src/app/app-version.ts): the same, always.
+          app_version=$(sed -n "s/^export const APP_VERSION = '\(.*\)';$/\1/p" web/src/app/app-version.ts)
+          app_level=$(sed -n "s/^export const APP_API_LEVEL = \([0-9]*\);$/\1/p" web/src/app/app-version.ts)
+          if [ "$app_version" != "$version" ] || [ "$app_level" != "$level" ]; then
+            echo "::error::web/src/app/app-version.ts ($app_version, level $app_level) must say what api/src/version.ts says ($version, level $level)"; exit 1
+          fi
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          echo "version $version on $branch"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case "$branch" in
+            main)
+              # Final versions only, numbers only, the build in four digits: a26.0.0.0001, v26.1.2.0000.
+              [[ "$version" =~ ^[abv][0-9]{2}\.[0-9]+\.[0-9]+\.[0-9]{4}$ ]] || { echo "::error::on main the version is a, b or v with numbers only and a four-digit build, not $version"; exit 1; } ;;
+            dev)
+              # The integration branch: every change starts from it and comes back to it; it carries
+              # the version of the last branch merged into it.
+              [[ "$version" =~ ^dev[0-9]{2}\.[0-9]+\.[0-9]+\.[0-9]{4}(-[a-z0-9]+(-[a-z0-9]+)*)?$ ]] || { echo "::error::on dev the version is a dev version with a four-digit build, not $version"; exit 1; } ;;
+            dev*)
+              # A branch of work, from dev, is named after its new version without the build
+              # (dev26.0.1 carries dev26.0.1.0000, dev26.0.1-squircle carries dev26.0.1.0000-squircle).
+              [[ "$version" =~ ^dev[0-9]{2}\.[0-9]+\.[0-9]+\.[0-9]{4}(-[a-z0-9]+(-[a-z0-9]+)*)?$ ]] || { echo "::error::$version is not a dev version with a four-digit build"; exit 1; }
+              named=$(sed -E 's/\.[0-9]{4}(-|$)/\1/' <<< "$version")
+              [ "$named" = "$branch" ] || { echo "::error::the branch $branch carries version $version: the branch must be named $named"; exit 1; } ;;
+          esac
+
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root
+          MYSQL_DATABASE: vtiger_reader_test
+          MYSQL_USER: vtiger
+          MYSQL_PASSWORD: ci-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pci-root --silent"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: vtiger_reader
+      TEST_DB_NAME: vtiger_reader_test
+      TEST_DB_ROOT_PASSWORD: ci-root
+      DB_USER: vtiger
+      DB_PASSWORD: ci-password
+      APP_URL: http://localhost:4200
+      COOKIE_PREFIX: vtiger-reader-ci
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  web:
+    name: Web tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NG_CLI_ANALYTICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx ng test --watch=false
+      - run: npx ng build
+
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # What ships in the image: the API's production dependencies and the web's (built into static
+      # files). A high or critical advisory there fails the build.
+      - name: Production dependencies (blocking)
+        run: |
+          (cd api && npm audit --omit=dev --audit-level=high)
+          (cd web && npm audit --omit=dev --audit-level=high)
+      # The build tools (Angular CLI and builder, test runner) never reach the image: their advisories
+      # are shown here, Dependabot proposes the updates.
+      - name: Build tools (shown, not blocking)
+        continue-on-error: true
+        run: |
+          (cd api && npm audit --audit-level=high)
+          (cd web && npm audit --audit-level=high)
+
+  image:
+    name: Image
+    needs: [version, api, web, audit]
+    runs-on: ubuntu-latest
+    permissions:
+      # contents: write for the GitHub Release of a published version.
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: target
+        name: Published only from main, with a final version never published before
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          publish=false
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_NAME" = main ]; then
+            if docker buildx imagetools inspect "$image:$VERSION" >/dev/null 2>&1; then
+              echo "::warning::$image:$VERSION is already published: this commit is not (a version is never overwritten; lenzi decides the next one)"
+            else
+              publish=true
+            fi
+          fi
+          tags="$image:$VERSION"
+          # A release is also the image that `latest` points to.
+          [[ "$VERSION" == v* ]] && tags="$tags,$image:latest"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - if: steps.target.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Built on every push (the Dockerfile must keep working); pushed only when published. amd64 for
+      # now.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ steps.target.outputs.publish == 'true' }}
+          tags: ${{ steps.target.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # The GitHub Release of a published version.
+      - if: steps.target.outputs.publish == 'true'
+        name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          prerelease=""
+          [[ "$VERSION" == v* ]] || prerelease="--prerelease"
+          gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" $prerelease \
+            --notes "Image: ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION."

@@ -1,0 +1,21 @@
+p {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+}
+
+/* The username typed again, under the warning. */
+.confirm {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.error {
+  margin-top: 8px;
+  color: var(--mat-sys-error);
+}
+
+/* A destructive action: the theme's error colours. */
+.delete:not(:disabled) {
+  --mat-button-filled-container-color: var(--mat-sys-error);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+}

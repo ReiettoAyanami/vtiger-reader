@@ -1,0 +1,93 @@
+/* The document scrolls, as before the sidebar: the container grows with its page (no inner
+   scrolling), so a page window can still stop the document scrolling underneath it. */
+.shell {
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+/* The drawer floats 8 px inside the safe area (below): its gaps from app.html come as inline styles. */
+.sidebar {
+  width: 240px;
+  top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  margin-left: env(safe-area-inset-left, 0px);
+}
+
+/* The Android app runs edge to edge (B3, lenzi 2026-10-05: the purple of the open menu stopped under
+   the camera; index.android.html): the page reaches under the status and gesture bars, so the scrims
+   cover them too, and what must stay readable keeps away from them by the safe-area insets. 0 on the
+   website, and in the app on an old WebView (the pages stay between the bars). At the sides they
+   matter in landscape, where the camera is. */
+mat-sidenav-content {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Behind the status bar, the page's own colour, as before edge to edge: the page scrolls under it,
+   not under the clock. Under the scrims and the page windows (z-index 20 and up). */
+mat-sidenav-content::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 7;
+  height: env(safe-area-inset-top, 0px);
+  background-color: var(--mat-sys-surface);
+}
+
+/* The button sits at the toolbar's edge, the title after it. */
+.menu {
+  margin-left: -8px;
+  margin-right: 8px;
+}
+
+/* The top bar stays at the top while the page scrolls under it, seen through the glass (styles.css).
+   Material's content box scrolls by itself (overflow: auto); here the document scrolls, so it lets
+   the bar stick to the window. Under the page windows (z-index 20) and the "+" (10). It floats,
+   8 px from the edges, with rounded corners on every screen (lenzi, 2026-10-02: "la barra in cima
+   deve avere bordi arrotondati in entrambe le versioni"): 16 px, Material 3's large shape. */
+mat-sidenav-content {
+  overflow: visible;
+  /* Material's overflow: auto also kept the bar's 8 px margin inside the content; with visible it
+     collapsed out of the content and the shell, the whole shell started 8 px down and the drawer's
+     scrim, which covers the shell, left that strip unblurred at the top (lenzi, 2026-10-03: "il blur
+     che applichi arriva fino a poco prima della cima"); short pages also scrolled by 8 px. flow-root
+     keeps the margin inside without an inner scroll. */
+  display: flow-root;
+}
+
+mat-toolbar {
+  position: sticky;
+  /* 8 px under the status bar in the Android app (above) */
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  z-index: 5;
+  box-sizing: border-box;
+  width: auto;
+  margin: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
+  border-radius: 16px;
+  backdrop-filter: var(--app-glass-filter);
+}
+
+/* While an administrator acts as a user, the "Viewing as" bar sticks above the top bar, which
+   sticks just under it: both stay in sight however far the page scrolls. */
+mat-sidenav-content {
+  --app-viewing-as-height: 44px;
+}
+
+app-viewing-as-bar {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  z-index: 6;
+  margin: calc(8px + env(safe-area-inset-top, 0px)) 8px 0;
+}
+
+mat-sidenav-content.impersonating mat-toolbar {
+  top: calc(8px + env(safe-area-inset-top, 0px) + var(--app-viewing-as-height) + 8px);
+  margin-top: 8px;
+}
+
+/* The Android app offline (design-android.md, "last data"): under the top bar, above the page. */
+app-offline-bar {
+  margin: 8px;
+}

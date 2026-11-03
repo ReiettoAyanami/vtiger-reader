@@ -1,0 +1,43 @@
+<mat-card appearance="outlined" [class.blocked]="user().blocked">
+  <mat-card-content>
+    <div class="title">
+      <mat-icon class="avatar" aria-hidden="true">{{ user().role === 'admin' ? 'admin_panel_settings' : 'person' }}</mat-icon>
+      <span class="username">{{ user().username }}</span>
+      @if (self()) {
+        <span class="tag you">You</span>
+      } @else {
+        <button mat-icon-button type="button" class="more" [attr.aria-label]="'Actions for ' + user().username" [matMenuTriggerFor]="actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+      }
+    </div>
+    <mat-menu #actions="matMenu" xPosition="before">
+      <button mat-menu-item type="button" (click)="edit.emit()">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <!-- A blocked user cannot be impersonated (the API refuses): unblock first, from Edit. -->
+      <button mat-menu-item type="button" [disabled]="user().blocked" (click)="impersonate.emit()">
+        <mat-icon>visibility</mat-icon>
+        <span>Impersonate</span>
+      </button>
+      <button mat-menu-item type="button" (click)="remove.emit()">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </mat-menu>
+
+    <p class="email">{{ user().email }}</p>
+
+    <div class="facts">
+      <span class="tag role">{{ user().role === 'admin' ? 'Administrator' : 'User' }}</span>
+      @if (user().blocked) {
+        <span class="tag status-blocked">Blocked</span>
+      }
+      @if (!user().hasPassword) {
+        <span class="tag status-no-password">No password</span>
+      }
+      <span class="created">{{ created() }}</span>
+    </div>
+  </mat-card-content>
+</mat-card>

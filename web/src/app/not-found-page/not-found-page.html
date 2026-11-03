@@ -1,0 +1,12 @@
+<main class="page">
+  <section class="card">
+    <p class="code">404</p>
+    <h1 class="title">Page not found</h1>
+    <p class="text">There is nothing at this address.</p>
+    @if (session.user()) {
+      <a mat-flat-button [routerLink]="session.path()">Go to your tickets</a>
+    } @else {
+      <a mat-flat-button routerLink="/login">Sign in</a>
+    }
+  </section>
+</main>

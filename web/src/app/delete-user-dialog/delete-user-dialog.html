@@ -1,0 +1,26 @@
+<h2 mat-dialog-title>Delete “{{ user.username }}”?</h2>
+
+<mat-dialog-content>
+  <p>Everything they recorded is deleted with them, for good: it cannot be undone.</p>
+  <mat-form-field appearance="outline" class="confirm">
+    <mat-label>Type {{ user.username }} to confirm</mat-label>
+    <input
+      matInput
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+      [value]="typed()"
+      (input)="typed.set(field.value)"
+      (keydown.enter)="confirm()"
+      #field
+    />
+  </mat-form-field>
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button type="button" class="delete" [disabled]="deleting() || !confirmed()" (click)="confirm()">Delete</button>
+</mat-dialog-actions>

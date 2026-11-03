@@ -1,0 +1,68 @@
+:host {
+  display: block;
+}
+
+/* Like a Material dialog's title: the form is shown in the entity dialog. */
+.title {
+  margin: 0 0 16px;
+  font: var(--mat-sys-headline-small);
+  color: var(--mat-sys-on-surface);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+/* The role: its name, then the two choices. */
+.role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 16px;
+}
+
+.label {
+  font: var(--mat-sys-body-large);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* Generate and Copy, under the password: the hint above them has its own line. */
+.password-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.once,
+.note {
+  margin: 4px 0 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.blocked {
+  margin-top: 16px;
+}
+
+.form-error {
+  margin: 8px 0 0;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-medium);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Its hint can take two lines on a phone (subscriptSizing dynamic): some air before the email. */
+.username {
+  margin-bottom: 12px;
+}

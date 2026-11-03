@@ -1,0 +1,32 @@
+{
+  "name": "vtiger-reader-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "vtiger-reader HTTP API (Fastify + mysql2): a read-only frontend to a vtiger / OpenCRM Italia CRM",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/static": "10.1.5",
+    "better-auth": "1.7.7",
+    "fastify": "5.12.5",
+    "luxon": "3.7.2",
+    "mysql2": "3.24.4"
+  },
+  "devDependencies": {
+    "@types/luxon": "3.7.5",
+    "@types/node": "22.20.4",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}

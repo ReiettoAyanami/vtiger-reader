@@ -1,0 +1,62 @@
+<section class="account" aria-labelledby="account-title">
+  <h2 class="title" id="account-title">Account</h2>
+
+  @if (session.user()?.impersonatedBy) {
+    <p class="note">You are viewing the app as {{ session.user()?.username }}: their password and their devices are theirs.</p>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="changePassword()" novalidate>
+      <!-- For the browser's password manager: whose password this is. -->
+      <input type="text" name="username" autocomplete="username" [value]="session.user()?.username ?? ''" readonly hidden />
+
+      <mat-form-field appearance="outline">
+        <mat-label>Current password</mat-label>
+        <input matInput formControlName="currentPassword" type="password" autocomplete="current-password" />
+        <mat-error>{{ errorOf('currentPassword') }}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>New password</mat-label>
+        <input
+          matInput
+          formControlName="newPassword"
+          [type]="newShown() ? 'text' : 'password'"
+          autocomplete="new-password"
+          autocapitalize="none"
+          spellcheck="false"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          [attr.aria-label]="newShown() ? 'Hide the new password' : 'Show the new password'"
+          (click)="newShown.set(!newShown())"
+        >
+          <mat-icon>{{ newShown() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-hint>At least 12 characters, a digit and a special character; never one you had before</mat-hint>
+        <mat-error>{{ errorOf('newPassword') }}</mat-error>
+      </mat-form-field>
+
+      @if (formError(); as message) {
+        <p class="form-error" role="alert">{{ message }}</p>
+      }
+
+      <div class="actions">
+        <button mat-flat-button type="submit" [disabled]="saving()">Change password</button>
+      </div>
+    </form>
+
+    <div class="elsewhere">
+      <div class="elsewhere-text">
+        <span class="label">Other devices</span>
+        <span class="note">Every other browser or phone signed in as you will have to sign in again.</span>
+      </div>
+      <button mat-stroked-button type="button" class="sign-out-elsewhere" [disabled]="signingOut()" (click)="signOutElsewhere()">
+        Sign out of the other devices
+      </button>
+      @if (signOutError(); as message) {
+        <p class="form-error" role="alert">{{ message }}</p>
+      }
+    </div>
+  }
+</section>

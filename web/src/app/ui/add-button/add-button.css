@@ -1,0 +1,19 @@
+/* Bottom right, above the content, clear of the phone's gesture bar. */
+:host {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+}
+
+/* A little larger than the standard 56 dp FAB (lenzi); Material has no token for its size. */
+button {
+  width: 64px;
+  height: 64px;
+}
+
+mat-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 28px;
+}

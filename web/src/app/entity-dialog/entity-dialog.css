@@ -1,0 +1,10 @@
+/* Taller than Material's 65vh: a whole form, its buttons included, shows without scrolling when the screen allows. */
+mat-dialog-content.mat-mdc-dialog-content {
+  padding-top: 24px;
+  /* inside the safe area: clear of the status and gesture bars in the Android app (app.css) */
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+.kind {
+  width: 100%;
+}

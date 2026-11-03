@@ -1,0 +1,14 @@
+/* In the corner, below the "+" (16 px from the bottom, z-index 10) and under every window and scrim:
+   2 px from the edges, one 12 px line, never a target for the pointer. */
+.version {
+  position: fixed;
+  right: calc(8px + env(safe-area-inset-right, 0px));
+  bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+  z-index: 1;
+  font: var(--mat-sys-label-small);
+  line-height: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
