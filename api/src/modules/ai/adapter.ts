@@ -2,10 +2,10 @@
  * What every AI provider does for the app (plan 4.3): list its models, and stream one answer. Two
  * adapters cover every kind: Anthropic's Messages API (anthropic.ts, the official SDK) and the
  * OpenAI-style chat completions that OpenAI, Gemini, Ollama and the "compatible" services expose
- * (openai.ts).
+ * (openai.ts); and Claude Code with the user's own subscription (claude-code.ts).
  */
 
-export const PROVIDER_KINDS = ['anthropic', 'openai', 'gemini', 'openai-compatible', 'ollama'] as const;
+export const PROVIDER_KINDS = ['anthropic', 'openai', 'gemini', 'openai-compatible', 'ollama', 'claude-code'] as const;
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
 /** The kinds whose address the user gives; the others have a fixed one. */

@@ -24,6 +24,9 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY api/package.json api/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
+# Claude Code, for the users who use their own Claude subscription (modules/ai/claude-code.ts):
+# the official package, unmodified, pinned.
+RUN npm install -g @anthropic-ai/claude-code@2.1.304 && npm cache clean --force
 COPY --from=api-build /app/dist ./dist
 COPY api/migrations ./migrations
 COPY --from=web /web/dist/web/browser ./public

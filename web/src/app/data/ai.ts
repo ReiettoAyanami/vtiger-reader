@@ -11,6 +11,12 @@ export const PROVIDER_KINDS = [
     needsKey: true,
   },
   { kind: 'ollama', name: 'Ollama', needsUrl: true, needsKey: false },
+  {
+    kind: 'claude-code',
+    name: 'Claude Code (your Pro/Max subscription)',
+    needsUrl: false,
+    needsKey: true,
+  },
 ] as const;
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]['kind'];

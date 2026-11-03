@@ -51,7 +51,7 @@ export interface BuildAppOptions {
    */
   auth?: Partial<AuthConfig> & { rateLimit?: boolean; signInDelay?: SignInDelay; signInSleep?: (ms: number) => Promise<void> };
   /** The AI providers' HTTP client and host check (tests: fake providers). */
-  ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[] };
+  ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[]; claudeCode?: string[] };
   /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
   crm?: Partial<CrmConfig> & { fetch?: Fetch; hostAllowed?: (host: string) => Promise<boolean> };
 }
@@ -223,6 +223,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   ticketRoutes(app, { tickets, lists });
   const ai = new AiService(pool, new SecretBox(crmConfig.encryptionKey), {
     privateHosts: opts.ai?.privateHosts ?? loadConfig().ai.privateHosts,
+    claudeCode: opts.ai?.claudeCode ?? loadConfig().ai.claudeCode,
     ...(opts.ai?.fetch ? { fetch: opts.ai.fetch } : {}),
     ...(opts.ai?.hostAllowed ? { hostAllowed: opts.ai.hostAllowed } : {}),
   });

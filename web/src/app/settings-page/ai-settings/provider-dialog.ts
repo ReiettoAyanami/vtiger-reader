@@ -62,8 +62,18 @@ import { ApiError } from '../../data/api-error';
             }}</mat-hint>
           </mat-form-field>
         }
+        @if (kind() === 'claude-code') {
+          <p class="how">
+            On your computer, run <code>claude setup-token</code>, sign in to Claude in the browser,
+            and paste the token it prints (sk-ant-oat…). It is yours: it answers with your
+            subscription, for you only.
+          </p>
+        }
         <mat-form-field appearance="outline">
-          <mat-label>API key{{ current().needsKey ? '' : ' (if it has one)' }}</mat-label>
+          <mat-label
+            >{{ kind() === 'claude-code' ? 'Token' : 'API key'
+            }}{{ current().needsKey ? '' : ' (if it has one)' }}</mat-label
+          >
           <input matInput formControlName="apiKey" type="password" autocomplete="off" />
           @if (data?.hasKey) {
             <mat-hint>Saved ({{ data?.keyHint }}): leave empty to keep it</mat-hint>
@@ -90,6 +100,11 @@ import { ApiError } from '../../data/api-error';
     }
     mat-form-field {
       width: 100%;
+    }
+    .how {
+      margin: 0;
+      font: var(--mat-sys-body-medium);
+      color: var(--mat-sys-on-surface-variant);
     }
     .error {
       margin: 0;

@@ -14,6 +14,7 @@ import {
   type ProviderKind,
 } from './adapter.js';
 import { AnthropicAdapter } from './anthropic.js';
+import { ClaudeCodeAdapter } from './claude-code.js';
 import { OpenAiAdapter } from './openai.js';
 import * as repo from './repository.js';
 
@@ -51,6 +52,8 @@ export type TaskModels = Record<TaskSlot, { providerId: number; model: string } 
 
 export interface AiOptions {
   privateHosts: string[];
+  /** How Claude Code is run (CLAUDE_CODE_BIN, split on spaces; tests: a fake). */
+  claudeCode?: string[];
   fetch?: typeof fetch;
   hostAllowed?: (host: string) => Promise<boolean>;
 }
@@ -179,6 +182,7 @@ export class AiService {
     }
     const http = this.options.fetch ? { fetch: this.options.fetch } : {};
     if (p.kind === 'anthropic') return new AnthropicAdapter(key ?? '', http);
+    if (p.kind === 'claude-code') return new ClaudeCodeAdapter(key ?? '', this.options.claudeCode ? { command: this.options.claudeCode } : {});
     const base = p.kind === 'ollama' ? `${p.baseUrl}/v1` : (FIXED_URL[p.kind] ?? p.baseUrl ?? '');
     if (!(await this.reachable(base))) throw new AiError('address', `The address of "${p.label}" is not a public https address any more`);
     return new OpenAiAdapter(base, key, http);

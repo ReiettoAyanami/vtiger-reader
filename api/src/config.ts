@@ -45,6 +45,8 @@ export interface AiConfig {
    * the public internet: a user cannot make the server call this machine or the LAN.
    */
   privateHosts: string[];
+  /** CLAUDE_CODE_BIN: how to run Claude Code for the "Claude Code (subscription)" providers; "claude" when unset. */
+  claudeCode: string[];
 }
 
 export interface AppConfig {
@@ -136,6 +138,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
         .split(',')
         .map((h) => h.trim().toLowerCase())
         .filter(Boolean),
+      claudeCode: (env.CLAUDE_CODE_BIN?.trim() || 'claude').split(/\s+/),
     },
     firstAdmin: {
       username: env.ADMIN_USERNAME?.trim().toLowerCase() || undefined,
