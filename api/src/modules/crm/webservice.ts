@@ -36,13 +36,24 @@ const POST_OPERATIONS: ReadonlySet<string> = new Set(['login', 'logout']);
  * - unreachable: no answer, a timeout, an HTTP error or an answer that is not the webservice's JSON;
  * - session: the session is unknown or expired (log in again and retry once);
  * - credentials: the CRM refused the username or the access key;
- * - denied: the CRM user may not do this (a module or a record outside their permissions);
+ * - denied: the CRM user may not do this (a module or a record outside their permissions; the CRM
+ *   answers so for a record that does not exist, and for a field it does not have);
+ * - not-found: a file id the CRM does not have (files_retrieve);
  * - not-linked: the user has not linked a CRM account;
  * - address: the CRM's address is not a public https one (checked before every login);
  * - refused: an operation outside READ_OPERATIONS (a bug, never sent);
  * - failed: any other error the CRM reports (its message is kept).
  */
-export type CrmErrorKind = 'unreachable' | 'session' | 'credentials' | 'denied' | 'not-linked' | 'address' | 'refused' | 'failed';
+export type CrmErrorKind =
+  | 'unreachable'
+  | 'session'
+  | 'credentials'
+  | 'denied'
+  | 'not-found'
+  | 'not-linked'
+  | 'address'
+  | 'refused'
+  | 'failed';
 
 export class CrmError extends Error {
   constructor(
@@ -59,12 +70,16 @@ export class CrmError extends Error {
 const SESSION_CODES = new Set(['INVALID_SESSIONID', 'AUTHENTICATION_REQUIRED', 'SESSION_EXPIRED']);
 const CREDENTIAL_CODES = new Set(['INVALID_USER_CREDENTIALS', 'INVALID_AUTH_TOKEN', 'INVALID_USERNAME']);
 const DENIED_CODES = new Set(['ACCESS_DENIED', 'PERMISSION_DENIED']);
+// Seen on the real CRM (plan 2.1, 2026-11-03): QUERY_SYNTAX_ERROR and INTERNAL_SERVER_ERROR are
+// "failed"; a missing record answers ACCESS_DENIED, a missing file RECORD_NOT_FOUND.
+const NOT_FOUND_CODES = new Set(['RECORD_NOT_FOUND']);
 
 /** The kind of an error the CRM reported, from its code, else (as cerini-ia does) from its words. */
 export function kindOf(code: string, message: string): CrmErrorKind {
   if (SESSION_CODES.has(code)) return 'session';
   if (CREDENTIAL_CODES.has(code)) return 'credentials';
   if (DENIED_CODES.has(code)) return 'denied';
+  if (NOT_FOUND_CODES.has(code)) return 'not-found';
   if (/session/i.test(message)) return 'session';
   return 'failed';
 }

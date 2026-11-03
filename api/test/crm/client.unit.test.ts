@@ -130,6 +130,21 @@ describe('CrmClient', () => {
     expect(crm.operations().filter((o) => o === 'describe')).toHaveLength(3);
   });
 
+  it('a value listed twice in a picklist is offered once', async () => {
+    const { crm, client } = setup();
+    crm.modules.set('HelpDesk', {
+      name: 'HelpDesk',
+      fields: [{ name: 'tipo_sla', label: 'Tipo SLA', type: { name: 'picklist', picklistValues: [{ value: 'Full', label: 'Full' }, { value: 'Full', label: 'Full' }, { value: 'Standard', label: 'Standard' }] } }],
+    });
+    expect((await client.describe(MARIO, 'HelpDesk')).fields[0]?.picklist.map((p) => p.value)).toEqual(['Full', 'Standard']);
+  });
+
+  it('the fake CRM refuses a query with a field it does not have, as the real one does', async () => {
+    const { client } = setup();
+    const error = await client.read(MARIO, 'query', { query: 'SELECT id, cf_not_here FROM HelpDesk LIMIT 1;' }).catch((e: unknown) => e);
+    expect([(error as CrmError).kind, (error as CrmError).code]).toEqual(['denied', 'ACCESS_DENIED']);
+  });
+
   it('select drops the fields this CRM does not have (it would refuse the whole query)', async () => {
     const { crm, client } = setup();
     const asked: string[] = [];
@@ -163,6 +178,7 @@ describe('CrmClient', () => {
     const files = await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map((i) => client.file(MARIO, `15x${i}`)));
     expect(files[2]).toEqual({ name: 'f3.txt', data: Buffer.from('file 3') });
     expect(crm.filesMost).toBe(4);
+    // A file id the CRM does not have: RECORD_NOT_FOUND, null here.
     expect(await client.file(MARIO, '15x99')).toBeNull();
   });
 });

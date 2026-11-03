@@ -175,15 +175,25 @@ export class CrmClient {
     try {
       return (await this.read(owner, 'retrieve', { id })) as Record<string, unknown>;
     } catch (error) {
-      if (error instanceof CrmError && (error.kind === 'denied' || error.kind === 'failed')) return null;
+      if (error instanceof CrmError && (error.kind === 'denied' || error.kind === 'not-found' || error.kind === 'failed')) return null;
       throw error;
     }
   }
 
-  /** An attachment's bytes and name, at most `maxFileDownloads` at once over the whole server. */
+  /**
+   * An attachment's bytes and name, at most `maxFileDownloads` at once over the whole server; null
+   * when the CRM has no such file or the user may not read it. The id is an attachment's, from a
+   * comment's or a document's `imageattachmentids` (a document's own id is not one: plan 2.1).
+   */
   async file(owner: Owner, id: string): Promise<{ name: string; data: Buffer } | null> {
     if (!isRecordId(id)) return null;
-    const result = await this.files.run(() => this.read(owner, 'files_retrieve', { id }, { timeoutMs: 60_000 }));
+    let result: unknown;
+    try {
+      result = await this.files.run(() => this.read(owner, 'files_retrieve', { id }, { timeoutMs: 60_000 }));
+    } catch (error) {
+      if (error instanceof CrmError && (error.kind === 'not-found' || error.kind === 'denied')) return null;
+      throw error;
+    }
     const first = Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined;
     if (!first || typeof first['filecontents'] !== 'string') return null;
     return { name: String(first['filename'] ?? 'attachment'), data: Buffer.from(first['filecontents'], 'base64') };
@@ -234,10 +244,15 @@ export function toModule(module: string, described: unknown): CrmModule {
           label: typeof f.label === 'string' ? f.label : f.name,
           type: typeof f.type?.name === 'string' ? f.type.name : 'string',
           refersTo: Array.isArray(f.type?.refersTo) ? f.type.refersTo.filter((m): m is string => typeof m === 'string') : [],
-          picklist: picklist.flatMap((p) => {
-            const v = p as { value?: unknown; label?: unknown };
-            return typeof v.value === 'string' ? [{ value: v.value, label: typeof v.label === 'string' ? v.label : v.value }] : [];
-          }),
+          // Some CRMs list a value twice (seen on the real CRM, plan 2.1): once is enough.
+          picklist: [
+            ...new Map(
+              picklist.flatMap((p) => {
+                const v = p as { value?: unknown; label?: unknown };
+                return typeof v.value === 'string' ? [[v.value, { value: v.value, label: typeof v.label === 'string' ? v.label : v.value }] as const] : [];
+              }),
+            ).values(),
+          ],
         },
       ];
     }),

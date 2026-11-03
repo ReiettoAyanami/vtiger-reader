@@ -119,19 +119,32 @@ export class FakeCrm {
         const module = this.modules.get(p['elementType'] ?? '');
         return module ? ok(module) : fail('ACCESS_DENIED', 'Permission to perform the operation is denied');
       }
-      case 'query':
-        return ok(this.queryAnswer(p['query'] ?? '', username));
+      case 'query': {
+        // As the real CRM (plan 2.1): a field the module does not have is "denied", for the whole query.
+        const query = p['query'] ?? '';
+        const select = /^SELECT\s+(.+?)\s+FROM\s+(\w+)/i.exec(query);
+        const module = select ? (this.modules.get(select[2] ?? '') as { fields?: Array<{ name: string }> } | undefined) : undefined;
+        if (select && module?.fields && !/\(/.test(select[1] ?? '')) {
+          const known = new Set(module.fields.map((f) => f.name));
+          const unknown = (select[1] ?? '').split(',').map((f) => f.trim()).find((f) => !known.has(f));
+          if (unknown) return fail('ACCESS_DENIED', `Permission to access '.${unknown}.' attribute denied.`);
+        }
+        return ok(this.queryAnswer(query, username));
+      }
       case 'retrieve': {
+        // As the real CRM (plan 2.1): a record that does not exist is "denied", not "not found".
         const record = this.records.get(p['id'] ?? '');
-        return record ? ok(record) : fail('ACCESS_DENIED', 'Permission to perform the operation is denied for id');
+        return record ? ok(record) : fail('ACCESS_DENIED', 'Permission to perform the operation is denied');
       }
       case 'files_retrieve': {
         this.filesRunning++;
         this.filesMost = Math.max(this.filesMost, this.filesRunning);
         await new Promise((resolve) => setTimeout(resolve, this.fileDelayMs));
         this.filesRunning--;
+        // As the real CRM (plan 2.1): { fileid, filename, filetype, filesize (a number), filecontents }.
         const file = this.files.get(p['id'] ?? '');
-        return ok(file ? [file] : []);
+        if (!file) return fail('RECORD_NOT_FOUND', 'Record you are trying to access is not found');
+        return ok([{ fileid: p['id'], filetype: 'application/octet-stream', filesize: Buffer.from(file.filecontents, 'base64').length, ...file }]);
       }
       default:
         return fail('UNKNOWN_OPERATION', `Unknown operation requested ${operation}`);

@@ -109,6 +109,8 @@ export function crmProblem(error: CrmError): ProblemError {
       return new ProblemError(503, 'crm-unreachable', 'The CRM is not reachable right now');
     case 'denied':
       return new ProblemError(403, 'crm-denied', 'Your CRM account may not read this');
+    case 'not-found':
+      return new ProblemError(404, 'not-found', 'The CRM does not have it');
     case 'address':
       return new ProblemError(409, 'crm-address', 'The CRM address is no longer a public https address: link the account again in Settings');
     case 'refused':
