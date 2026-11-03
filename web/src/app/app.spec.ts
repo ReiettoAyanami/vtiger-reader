@@ -11,6 +11,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { AdminApi } from './data/admin-api';
 import { AuthApi, type SessionUser } from './data/auth-api';
+import { CrmLinkApi } from './data/crm-link-api';
 import { SettingsApi } from './data/settings-api';
 import { VersionApi } from './data/version-api';
 
@@ -20,6 +21,10 @@ const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonat
 function pageData(getSettings: () => unknown) {
   return [
     { provide: SettingsApi, useValue: { getSettings } },
+    {
+      provide: CrmLinkApi,
+      useValue: { getLink: () => of({ crmUrl: null, linked: false, username: null, linkedAt: null, lastLoginAt: null, problem: null }) },
+    },
     // the shell's own: the version in the corner
     { provide: VersionApi, useValue: { getVersion: () => of('dev26.0.0') } },
     // the admin view

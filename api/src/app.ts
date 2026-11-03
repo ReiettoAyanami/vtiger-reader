@@ -1,8 +1,12 @@
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyServerOptions } from 'fastify';
-import { loadConfig, type AuthConfig } from './config.js';
+import { loadConfig, type AuthConfig, type CrmConfig } from './config.js';
 import { createPool, pingDatabase, type Pool } from './db/pool.js';
 import { AccountLifecycle } from './modules/accounts/service.js';
+import { CrmClient } from './modules/crm/client.js';
+import { crmLinkRoutes } from './modules/crm/routes.js';
+import { CrmLinkService, crmProblem } from './modules/crm/service.js';
+import { CrmError, Webservice, type Fetch } from './modules/crm/webservice.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { AdminService } from './modules/admin/service.js';
 import { createAuth } from './modules/identity/auth.js';
@@ -20,6 +24,7 @@ import {
   type ProblemBody,
   type ProblemFieldError,
 } from './shared/errors.js';
+import { SecretBox } from './shared/secret-box.js';
 import { securityHeadersHook } from './shared/security-headers.js';
 import type { Clock } from './shared/time.js';
 import { API_LEVEL, VERSION } from './version.js';
@@ -38,6 +43,8 @@ export interface BuildAppOptions {
    * waits, and the sleep of those waits, to see which ones are asked for).
    */
   auth?: Partial<AuthConfig> & { rateLimit?: boolean; signInDelay?: SignInDelay; signInSleep?: (ms: number) => Promise<void> };
+  /** The CRM over the environment's (tests: a fake CRM's address and its fetch). */
+  crm?: Partial<CrmConfig> & { fetch?: Fetch };
 }
 
 declare module 'fastify' {
@@ -102,6 +109,10 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // Every error leaves as Problem Details.
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ProblemError) return sendProblem(reply, error.toBody());
+    if (error instanceof CrmError) {
+      if (error.kind === 'refused') request.log.error({ err: error }, 'a CRM operation outside the read-only list');
+      return sendProblem(reply, crmProblem(error).toBody());
+    }
     if (error.validation) {
       return sendProblem(reply, problemBody(400, 'validation', error.message, validationErrors(error)));
     }
@@ -139,6 +150,16 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     for (const method of [route.method].flat()) if (method !== 'HEAD') apiRoutes.push({ method, url: route.url });
   });
 
+  // The CRM: each user's own account, sealed in crm_link; one client for the whole server.
+  const crmConfig: CrmConfig = { ...loadConfig().crm, ...opts.crm };
+  const crmClient = crmConfig.url
+    ? new CrmClient(new Webservice({ url: crmConfig.url, ...(opts.crm?.fetch ? { fetch: opts.crm.fetch } : {}) }), {
+        credentialsOf: (owner) => links.credentialsOf(owner),
+        onLogin: (owner, login) => links.loggedIn(owner, login.crmUserId),
+      })
+    : null;
+  const links: CrmLinkService = new CrmLinkService(pool, new SecretBox(crmConfig.encryptionKey), crmConfig.url, crmClient);
+
   const settings = new SettingsService(pool);
   const accounts = new AccountLifecycle(pool, identity, settings);
   app.decorate('accounts', accounts);
@@ -167,6 +188,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   });
   accountRoutes(app, { identity });
   settingsRoutes(app, { settings });
+  crmLinkRoutes(app, { links });
   adminRoutes(app, { admin: new AdminService(identity, accounts) });
 
   if (opts.webDist) {

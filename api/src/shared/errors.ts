@@ -34,6 +34,7 @@ const TITLES: Record<number, string> = {
   415: 'Unsupported Media Type',
   429: 'Too Many Requests',
   500: 'Internal Server Error',
+  502: 'Bad Gateway',
   503: 'Service Unavailable',
 };
 

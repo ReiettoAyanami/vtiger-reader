@@ -54,6 +54,10 @@ describe('deleting a user', () => {
       { username: 'leaving', email: 'leaving@dev.invalid', password: 'Leaving-pass-001', role: 'user' },
       null,
     );
+    await rawRows(
+      "INSERT INTO crm_link (user_id, crm_username, access_key_sealed, crm_user_id) VALUES (?, 'leaving', 'v1.a.b.c', '19x9')",
+      [id],
+    );
     await api.app.accounts.deleteUser(id);
     const tables = await rawRows(
       `SELECT TABLE_NAME AS t FROM information_schema.COLUMNS

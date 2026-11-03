@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
 import { ApiError } from '../data/api-error';
+import { CrmLinkApi } from '../data/crm-link-api';
 import { Settings } from '../data/settings';
 import { SettingsApi } from '../data/settings-api';
 import { Appearance } from '../ui/appearance';
@@ -58,6 +59,13 @@ describe('SettingsPage', () => {
           useValue: {
             getSettings: () => of(stored),
             updateSettings: (patch: Partial<Settings>) => (sent.push(patch), answer(patch)),
+          },
+        },
+        {
+          provide: CrmLinkApi,
+          useValue: {
+            getLink: () =>
+              of({ crmUrl: 'https://crm.example.invalid', linked: false, username: null, linkedAt: null, lastLoginAt: null, problem: null }),
           },
         },
         { provide: MatSnackBar, useValue: { open: (message: string) => snacks.push(message) } },

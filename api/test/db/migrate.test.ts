@@ -47,13 +47,14 @@ describe('migrations', () => {
     }
   });
 
-  it("creates the tables; UNIQUE keys only on a user's username and email, one settings row per user, two technical keys", async () => {
+  it("creates the tables; UNIQUE keys only on a user's username and email, one settings row and one CRM link per user, two technical keys", async () => {
     const tables = await rawRows(
       `SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`,
     );
     // Users and their preferences only: nothing the CRM already holds (lenzi, 2026-11-03).
     expect(tables.map((t) => t.name)).toEqual([
       'accounts',
+      'crm_link',
       'password_history',
       'rate_limits',
       'schema_migrations',
@@ -69,6 +70,7 @@ describe('migrations', () => {
         ORDER BY TABLE_NAME, COLUMN_NAME`,
     );
     expect(unique.map((u) => `${u.t}.${u.c}`)).toEqual([
+      'crm_link.user_id',
       'rate_limits.key',
       'sessions.token',
       'user_settings.user_id',
@@ -81,6 +83,7 @@ describe('migrations', () => {
     );
     expect(fks.map((f) => `${f.t}.${f.c}->${f.r}`)).toEqual([
       'accounts.user_id->users',
+      'crm_link.user_id->users',
       'password_history.user_id->users',
       'sessions.impersonated_by->users',
       'sessions.user_id->users',

@@ -11,7 +11,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.unit.config.ts && vitest run",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

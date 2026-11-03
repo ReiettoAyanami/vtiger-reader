@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { expect } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import type { Clock } from '../../src/shared/time.js';
+import type { FakeCrm } from './fake-crm.js';
 import { testPool } from './db.js';
 import { TESTER, cookieOf, type TestUser } from './session.js';
 
@@ -69,9 +70,17 @@ export class Api {
   }
 }
 
-export async function makeApi(opts: { clock?: Clock; webDist?: string } = {}): Promise<Api> {
-  // The sign-in counters are tested on their own (identity/routes.test.ts).
-  const app = await buildApp({ pool: testPool(), clock: opts.clock ?? fixedClock, webDist: opts.webDist, auth: { rateLimit: false } });
+export async function makeApi(opts: { clock?: Clock; webDist?: string; crm?: FakeCrm; encryptionKey?: Buffer } = {}): Promise<Api> {
+  // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one,
+  // or none: never the CRM_URL of the environment.
+  const crm = opts.crm ? { url: opts.crm.url, fetch: opts.crm.fetch } : { url: undefined };
+  const app = await buildApp({
+    pool: testPool(),
+    clock: opts.clock ?? fixedClock,
+    webDist: opts.webDist,
+    auth: { rateLimit: false },
+    crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
+  });
   await app.ready();
   return new Api(app);
 }

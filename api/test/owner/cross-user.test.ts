@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeApi, type Api, type Res } from '../support/api.js';
 import { rawRows } from '../support/db.js';
+import { FakeCrm } from '../support/fake-crm.js';
 import { OTHER, TESTER, idOf } from '../support/session.js';
 
 /**
@@ -20,6 +21,8 @@ interface Ids {
 
 const MISSING: Ids = { user: 999993 };
 const SECRET = 'A-secret';
+/** A's CRM access key: never in an answer, not even A's own. */
+const A_KEY = 'AbCdEf0123456789';
 
 type Call = (as: Api, ids: Ids) => Promise<Res>;
 /**
@@ -42,6 +45,10 @@ const CASES: Record<string, Case[]> = {
   // Settings
   'GET /api/settings': [own((b) => b.get('/api/settings'))],
   'PATCH /api/settings': [own((b) => b.patch('/api/settings', { timezone: 'America/Lima' }))],
+  // The CRM link: B links, reads and unlinks B's own account
+  'PUT /api/crm/link': [own((b) => b.put('/api/crm/link', { username: 'anna.bianchi', accessKey: 'ZyXwVu9876543210' }))],
+  'GET /api/crm/link': [own((b) => b.get('/api/crm/link'))],
+  'DELETE /api/crm/link': [own((b) => b.del('/api/crm/link'))],
   // B's own account (a wrong current password: nothing changes for the next cases)
   'POST /api/account/password': [own((b) => b.post('/api/account/password', { currentPassword: 'not-mine-0000!', newPassword: 'Taken-pass-00001' }))],
   // Admin: B is no administrator
@@ -58,7 +65,7 @@ const PUBLIC = ['GET /api/health', 'GET /api/version'];
 
 let api: Api;
 beforeAll(async () => {
-  api = await makeApi();
+  api = await makeApi({ crm: new FakeCrm() });
 });
 afterAll(async () => {
   await api.app.close();
@@ -66,6 +73,7 @@ afterAll(async () => {
 
 async function recordA(): Promise<Ids> {
   expect((await api.patch('/api/settings', { timezone: 'Europe/London' })).status).toBe(200);
+  expect((await api.put('/api/crm/link', { username: 'mario.rossi', accessKey: A_KEY })).status).toBe(200);
   return { user: await idOf(api.app, TESTER) };
 }
 
@@ -73,6 +81,7 @@ async function recordA(): Promise<Ids> {
 async function dataOf(userId: number) {
   return {
     settings: await rawRows('SELECT * FROM user_settings WHERE user_id = ?', [userId]),
+    crmLink: await rawRows('SELECT * FROM crm_link WHERE user_id = ?', [userId]),
   };
 }
 
@@ -101,6 +110,8 @@ describe('another user', () => {
           const res = await c.call(b);
           expect(res.status, `${route}: ${JSON.stringify(res.body)}`).toBeLessThan(500);
           expect(JSON.stringify(res.body), route).not.toContain(SECRET);
+          expect(JSON.stringify(res.body), route).not.toContain('mario.rossi');
+          expect(JSON.stringify(res.body), route).not.toContain(A_KEY);
         } else if (c.kind === 'hidden') {
           for (const ids of [a, MISSING]) {
             expect(shape(await c.call(b, ids)), route).toEqual({ status: 404, type: 'urn:vtiger-reader:problem:not-found' });
@@ -122,6 +133,7 @@ describe('another user', () => {
       { username: 'other-user', role: 'user', banned: 0 },
     ]);
     expect((await api.get('/api/settings')).status).toBe(200);
+    expect((await api.get('/api/crm/link')).body).toMatchObject({ linked: true, username: 'mario.rossi', problem: null });
     // B's own settings are B's: the defaults, then B's own change
     expect((await b.get('/api/settings')).body).toEqual({ language: 'en', timezone: 'America/Lima' });
   });

@@ -58,9 +58,8 @@ describe('the first administrator', () => {
     expect((await signIn(app, 'lenzi', password)).status).toBe(200);
 
     expect(await rawRows("SELECT username, email, role FROM users")).toEqual([{ username: 'lenzi', email: 'lenzi@dev.invalid', role: 'admin' }]);
-    // ready to use: settings and layout
-    expect(await rawRows('SELECT currency FROM settings')).toEqual([{ currency: 'EUR' }]);
-    expect((await rawRows('SELECT COUNT(*) AS n FROM view_items'))[0]?.n).toBeGreaterThan(0);
+    // ready to use: the default settings
+    expect(await rawRows('SELECT language, timezone FROM user_settings')).toEqual([{ language: 'en', timezone: 'Europe/Rome' }]);
 
     expect(logs.join('')).toContain(file);
     expect(logs.join('')).not.toContain(password);

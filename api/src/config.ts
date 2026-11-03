@@ -1,4 +1,6 @@
 import { isAbsolute, resolve } from 'node:path';
+import { DEV_ENCRYPTION_KEY, parseEncryptionKey } from './shared/secret-box.js';
+import { endpointOf } from './modules/crm/webservice.js';
 
 export interface DbConfig {
   host: string;
@@ -30,8 +32,17 @@ export interface FirstAdminConfig {
   passwordFile: string;
 }
 
+/** The company CRM (OpenCRM Italia / vtiger), the same for every user. */
+export interface CrmConfig {
+  /** CRM_URL, without /webservice.php; unset: no CRM yet, linking answers so. */
+  url: string | undefined;
+  /** ENCRYPTION_KEY: seals the users' CRM access keys (and later their AI keys) in the database. */
+  encryptionKey: Buffer;
+}
+
 export interface AppConfig {
   db: DbConfig;
+  crm: CrmConfig;
   auth: AuthConfig;
   firstAdmin: FirstAdminConfig;
   /** Name of the test database (dev only), `${DB_NAME}_test` when TEST_DB_NAME is unset. */
@@ -98,10 +109,28 @@ function authConfig(env: Env): AuthConfig {
   };
 }
 
+function crmConfig(env: Env): CrmConfig {
+  const production = env.NODE_ENV === 'production';
+  const url = env.CRM_URL?.trim() || undefined;
+  if (url) {
+    try {
+      endpointOf(url);
+    } catch {
+      throw new Error(`CRM_URL must be the CRM's address, such as https://nomecrm.opencrmitalia.com, got "${url}"`);
+    }
+  }
+  const rawKey = env.ENCRYPTION_KEY?.trim();
+  if (production && !rawKey) {
+    throw new Error('ENCRYPTION_KEY must be set in production, 32 bytes in base64 (openssl rand -base64 32)');
+  }
+  return { url: url?.replace(/\/+$/, ''), encryptionKey: rawKey ? parseEncryptionKey(rawKey) : DEV_ENCRYPTION_KEY };
+}
+
 export function loadConfig(env: Env = process.env): AppConfig {
   const database = str(env, 'DB_NAME', 'vtiger_reader');
   return {
     auth: authConfig(env),
+    crm: crmConfig(env),
     firstAdmin: {
       username: env.ADMIN_USERNAME?.trim().toLowerCase() || undefined,
       email: str(env, 'ADMIN_EMAIL', 'admin@example.invalid'),

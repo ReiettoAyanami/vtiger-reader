@@ -51,6 +51,10 @@ services:
       # differs from production's: on one machine localhost:4200 and :8080 share their cookies.
       APP_URL: ${DEV_APP_URL:-http://localhost:4200}
       COOKIE_PREFIX: vtiger-reader-dev
+      # The company CRM; the users' access keys are sealed with the API's development key unless
+      # ENCRYPTION_KEY is set.
+      CRM_URL: ${CRM_URL:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       # The first administrator: created at startup while the database has none, its password written
       # to to_delete.password.txt at the project root (gitignored; delete it after reading). admin
       # unless .env says otherwise: its pages are /admin, its admin panel /admin/admin.

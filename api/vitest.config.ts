@@ -5,6 +5,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    // Those without a database run on their own: vitest.unit.config.ts.
+    exclude: ['test/**/*.unit.test.ts'],
     environment: 'node',
     fileParallelism: false,
     globalSetup: ['./test/global-setup.ts'],
