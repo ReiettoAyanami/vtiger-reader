@@ -66,6 +66,16 @@
       </dl>
 
       <div class="actions">
+        <button
+          mat-flat-button
+          type="button"
+          class="ask-ai"
+          [attr.aria-expanded]="aiOpen()"
+          (click)="aiOpen.set(!aiOpen())"
+        >
+          <mat-icon>auto_awesome</mat-icon>
+          Ask AI
+        </button>
         <a mat-stroked-button [href]="t.crmLink" target="_blank" rel="noopener noreferrer">
           <mat-icon>open_in_new</mat-icon>
           Open in CRM
@@ -210,3 +220,7 @@
     }
   }
 </main>
+
+@if (aiOpen() && ticket.hasValue()) {
+  <app-ai-panel [ticketId]="id()" [hasPhotos]="hasPhotos()" (closed)="aiOpen.set(false)" />
+}

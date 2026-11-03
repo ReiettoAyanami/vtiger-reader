@@ -45,14 +45,23 @@
   <!-- The user's own CRM account: the app reads the CRM with it. -->
   <app-crm-link-settings />
 
+  <!-- The user's own AI providers, and which model does what. -->
+  <app-ai-settings />
+
   <!-- The user's own password and sessions: apart from the preferences. -->
   <app-account-settings />
 
   <!-- A choice of this browser, not a setting of the API: outside the form, applied at once. -->
   <section class="display" aria-label="Display">
-    <mat-slide-toggle [checked]="appearance.reduceTransparency()" (change)="appearance.setReduceTransparency($event.checked)">
+    <mat-slide-toggle
+      [checked]="appearance.reduceTransparency()"
+      (change)="appearance.setReduceTransparency($event.checked)"
+    >
       Reduce transparency
     </mat-slide-toggle>
-    <p class="note">Windows, menus and bars become solid, without blurring what is under them. Remembered by this browser.</p>
+    <p class="note">
+      Windows, menus and bars become solid, without blurring what is under them. Remembered by this
+      browser.
+    </p>
   </section>
 </main>

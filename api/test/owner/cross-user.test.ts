@@ -18,13 +18,16 @@ import { OTHER, TESTER, idOf } from '../support/session.js';
 interface Ids {
   user: number;
   list: number;
+  provider: number;
 }
 
-const MISSING: Ids = { user: 999993, list: 999994 };
+const MISSING: Ids = { user: 999993, list: 999994, provider: 999995 };
 const SECRET = 'A-secret';
 /** A's CRM access key: never in an answer, not even A's own. */
 const A_KEY = 'AbCdEf0123456789';
 const CRM_URL = new FakeCrm().url;
+/** A's AI key: never in an answer, not even A's own. */
+const A_AI_KEY = 'sk-a-secret-key-000000';
 
 type Call = (as: Api, ids: Ids) => Promise<Res>;
 /**
@@ -55,6 +58,16 @@ const CASES: Record<string, Case[]> = {
   // Tickets: read from the CRM with B's own account (B unlinked above: each answers B's "not
   // linked"); nothing of A's in them. A's image marks are A's: B's mark changes none of them.
   'GET /api/tickets/options': [own((b) => b.get('/api/tickets/options'))],
+  // AI: A's provider ids answer as missing ones; A's key never shows
+  'GET /api/ai/providers': [own((b) => b.get('/api/ai/providers'))],
+  'POST /api/ai/providers': [own((b) => b.post('/api/ai/providers', { kind: 'ollama', label: 'B local', baseUrl: 'https://ollama.example.com' }))],
+  'PUT /api/ai/providers/:id': [like((b, i) => b.put(`/api/ai/providers/${i.provider}`, { kind: 'openai', label: SECRET, apiKey: 'sk-b-00000000000' }), true)],
+  'DELETE /api/ai/providers/:id': [like((b, i) => b.del(`/api/ai/providers/${i.provider}`))],
+  'GET /api/ai/providers/:id/models': [like((b, i) => b.get(`/api/ai/providers/${i.provider}/models`))],
+  'GET /api/ai/tasks': [own((b) => b.get('/api/ai/tasks'))],
+  'PUT /api/ai/tasks': [like((b, i) => b.put('/api/ai/tasks', { default: { providerId: i.provider, model: 'x' } }))],
+  'GET /api/ai/usage': [own((b) => b.get('/api/ai/usage'))],
+  'POST /api/tickets/:id/ai': [own((b) => b.post('/api/tickets/17x1/ai', { task: 'summary' }))],
   // Lists: A's list ids answer as missing ones
   'GET /api/lists': [own((b) => b.get('/api/lists'))],
   'GET /api/lists/counts': [own((b) => b.get('/api/lists/counts'))],
@@ -97,7 +110,9 @@ async function recordA(): Promise<Ids> {
   const aId = await idOf(api.app, TESTER);
   await rawRows("INSERT INTO image_mark (user_id, exact_hash, dhash, ratio, mark) VALUES (?, REPEAT('a', 64), REPEAT('b', 16), 3, 'logo')", [aId]);
   const list = (await api.post('/api/lists', { name: SECRET, filter: { owner: 'me', status: 'any' } })).body.id as number;
-  return { user: await idOf(api.app, TESTER), list };
+  const provider = (await api.post('/api/ai/providers', { kind: 'openai', label: SECRET, apiKey: A_AI_KEY })).body.id as number;
+  await api.put('/api/ai/tasks', { default: { providerId: provider, model: 'gpt-x' } });
+  return { user: await idOf(api.app, TESTER), list, provider };
 }
 
 /** Every row of a user's own data, as stored. */
@@ -107,6 +122,8 @@ async function dataOf(userId: number) {
     crmLink: await rawRows('SELECT * FROM crm_link WHERE user_id = ?', [userId]),
     imageMarks: await rawRows('SELECT * FROM image_mark WHERE user_id = ?', [userId]),
     lists: await rawRows('SELECT * FROM ticket_list WHERE user_id = ? ORDER BY id', [userId]),
+    aiProviders: await rawRows('SELECT * FROM ai_provider WHERE user_id = ? ORDER BY id', [userId]),
+    aiTasks: await rawRows('SELECT * FROM ai_task_model WHERE user_id = ? ORDER BY id', [userId]),
   };
 }
 
@@ -137,6 +154,7 @@ describe('another user', () => {
           expect(JSON.stringify(res.body), route).not.toContain(SECRET);
           expect(JSON.stringify(res.body), route).not.toContain('mario.rossi');
           expect(JSON.stringify(res.body), route).not.toContain(A_KEY);
+          expect(JSON.stringify(res.body), route).not.toContain(A_AI_KEY);
         } else if (c.kind === 'hidden') {
           for (const ids of [a, MISSING]) {
             expect(shape(await c.call(b, ids)), route).toEqual({ status: 404, type: 'urn:vtiger-reader:problem:not-found' });

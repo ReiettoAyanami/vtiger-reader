@@ -37,9 +37,20 @@ export interface CrmConfig {
   encryptionKey: Buffer;
 }
 
+/** The AI help (plan 4): each user's own providers, configured from the interface. */
+export interface AiConfig {
+  /**
+   * AI_PRIVATE_HOSTS: hosts on this network a provider may live on (a local Ollama), comma
+   * separated, e.g. "ollama.lan,192.168.1.20:11434". Any other provider address must be https on
+   * the public internet: a user cannot make the server call this machine or the LAN.
+   */
+  privateHosts: string[];
+}
+
 export interface AppConfig {
   db: DbConfig;
   crm: CrmConfig;
+  ai: AiConfig;
   auth: AuthConfig;
   firstAdmin: FirstAdminConfig;
   /** Name of the test database (dev only), `${DB_NAME}_test` when TEST_DB_NAME is unset. */
@@ -120,6 +131,12 @@ export function loadConfig(env: Env = process.env): AppConfig {
   return {
     auth: authConfig(env),
     crm: crmConfig(env),
+    ai: {
+      privateHosts: (env.AI_PRIVATE_HOSTS ?? '')
+        .split(',')
+        .map((h) => h.trim().toLowerCase())
+        .filter(Boolean),
+    },
     firstAdmin: {
       username: env.ADMIN_USERNAME?.trim().toLowerCase() || undefined,
       email: str(env, 'ADMIN_EMAIL', 'admin@example.invalid'),

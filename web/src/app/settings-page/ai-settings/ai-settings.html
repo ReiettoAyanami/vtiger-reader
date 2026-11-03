@@ -1,0 +1,107 @@
+<section class="ai" aria-labelledby="ai-title">
+  <h2 class="title" id="ai-title">AI</h2>
+
+  <h3 class="sub">Your providers</h3>
+  @for (provider of providerList(); track provider.id) {
+    <div class="provider">
+      <div class="provider-text">
+        <span class="provider-name">{{ provider.label }}</span>
+        <span class="note"
+          >{{ kindName(provider) }}{{ provider.baseUrl ? ' · ' + provider.baseUrl : ''
+          }}{{ provider.keyHint ? ' · key ' + provider.keyHint : '' }}</span
+        >
+      </div>
+      <button mat-button type="button" (click)="loadModels(provider.id, true)">Test</button>
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="'Actions for ' + provider.label"
+        [matMenuTriggerFor]="menu"
+      >
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <mat-menu #menu="matMenu" xPosition="before">
+        <button mat-menu-item type="button" (click)="editProvider(provider)">
+          <mat-icon>edit</mat-icon>
+          <span>Edit</span>
+        </button>
+        <button mat-menu-item type="button" (click)="deleteProvider(provider)">
+          <mat-icon>delete</mat-icon>
+          <span>Delete</span>
+        </button>
+      </mat-menu>
+    </div>
+  } @empty {
+    <p class="note">
+      No provider yet: add one (Anthropic, OpenAI, Gemini, Ollama or a compatible service) with your
+      own key.
+    </p>
+  }
+  <div class="row-end">
+    <button mat-stroked-button type="button" class="add-provider" (click)="addProvider()">
+      <mat-icon>add</mat-icon>
+      Add a provider
+    </button>
+  </div>
+
+  @if (providerList().length > 0) {
+    <h3 class="sub">Which model does what</h3>
+    <p class="note">
+      The default model answers every task without one of its own. Models are read from the
+      provider; any name can be typed too.
+    </p>
+    @for (choice of choices(); track choice.slot) {
+      <div class="choice">
+        <span class="choice-label">{{ choice.label }}</span>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="choice-provider">
+          <mat-label>Provider</mat-label>
+          <mat-select [ngModel]="choice.providerId" (ngModelChange)="setProvider(choice, $event)">
+            <mat-option [value]="null">{{
+              choice.slot === 'default' ? 'None' : 'Use the default'
+            }}</mat-option>
+            @for (provider of providerList(); track provider.id) {
+              <mat-option [value]="provider.id">{{ provider.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="choice-model">
+          <mat-label>Model</mat-label>
+          <input
+            matInput
+            [ngModel]="choice.model"
+            (ngModelChange)="setModel(choice, $event)"
+            [matAutocomplete]="modelList"
+            [disabled]="choice.providerId === null"
+            (focus)="modelsOf(choice.providerId).length === 0 && loadModels(choice.providerId)"
+            autocomplete="off"
+          />
+          <mat-autocomplete #modelList="matAutocomplete">
+            @for (model of offered(choice); track model.id) {
+              <mat-option [value]="model.id">{{ model.name }}</mat-option>
+            }
+          </mat-autocomplete>
+        </mat-form-field>
+      </div>
+    }
+    <div class="row-end">
+      <button mat-flat-button type="button" [disabled]="saving()" (click)="saveChoices()">
+        Save the models
+      </button>
+    </div>
+  }
+
+  @if (usageRows().length > 0) {
+    <h3 class="sub">Used in the last 30 days</h3>
+    <ul class="usage">
+      @for (row of usageRows(); track row.model) {
+        <li>
+          <span class="usage-model">{{ row.model }}</span>
+          <span class="note"
+            >{{ row.calls }} answers · {{ row.tokensIn.toLocaleString('en-GB') }} tokens in ·
+            {{ row.tokensOut.toLocaleString('en-GB') }} out</span
+          >
+        </li>
+      }
+    </ul>
+  }
+</section>

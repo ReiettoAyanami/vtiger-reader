@@ -53,6 +53,8 @@ services:
       COOKIE_PREFIX: vtiger-reader-dev
       # The users' CRM access keys are sealed with the API's development key unless set.
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # Hosts on this network an AI provider may live on (a local Ollama); else public https only.
+      AI_PRIVATE_HOSTS: ${AI_PRIVATE_HOSTS:-}
       # The first administrator: created at startup while the database has none, its password written
       # to to_delete.password.txt at the project root (gitignored; delete it after reading). admin
       # unless .env says otherwise: its pages are /admin, its admin panel /admin/admin.

@@ -58,6 +58,8 @@ services:
       # Seals the users' CRM access keys in the database (each user links their CRM, address
       # included, from Settings).
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env - openssl rand -base64 32}
+      # Hosts on this network an AI provider may live on (a local Ollama); else public https only.
+      AI_PRIVATE_HOSTS: ${AI_PRIVATE_HOSTS:-}
       # The first administrator: created at the first start, its password written to
       # to_delete.password.txt next to this file (delete it after reading). admin unless .env says
       # otherwise. The username is permanent: it is the address of the administrator's pages

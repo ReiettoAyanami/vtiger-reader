@@ -9,6 +9,7 @@ import { AuthApi, type SessionUser } from '../data/auth-api';
 import { SettingsApi } from '../data/settings-api';
 import { Attachment, TicketDetail } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
+import { AiApi } from '../data/ai-api';
 import { HistoryDialogs } from '../history-dialogs';
 import { Session } from '../session/session';
 import { TicketPage } from './ticket-page';
@@ -122,6 +123,7 @@ describe('TicketPage', () => {
         },
         { provide: MatSnackBar, useValue: { open: () => undefined } },
         { provide: HistoryDialogs, useValue: { open: async () => undefined } },
+        { provide: AiApi, useValue: { ask: async () => undefined } },
         {
           provide: TicketsApi,
           useValue: {
@@ -221,6 +223,15 @@ describe('TicketPage', () => {
       .click();
     await page.fixture.whenStable();
     expect(marks).toEqual([['15x1', 'photo']]);
+  });
+
+  it('Ask AI opens the panel; "Look at the photos" there, since the ticket has a real photo', async () => {
+    const page = await render();
+    expect(page.element.querySelector('app-ai-panel')).toBeNull();
+    page.element.querySelector<HTMLButtonElement>('.ask-ai')!.click();
+    await page.fixture.whenStable();
+    expect(page.element.querySelector('app-ai-panel')).not.toBeNull();
+    expect(page.text('app-ai-panel .chip')).toContain('Look at the photos');
   });
 
   it('a ticket the CRM does not give: said, without the rest', async () => {

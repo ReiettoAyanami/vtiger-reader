@@ -1,6 +1,14 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,11 +22,14 @@ import { LANGUAGES, Settings } from '../data/settings';
 import { SettingsApi } from '../data/settings-api';
 import { Appearance } from '../ui/appearance';
 import { AccountSettings } from './account-settings/account-settings';
+import { AiSettings } from './ai-settings/ai-settings';
 import { CrmLinkSettings } from './crm-link-settings/crm-link-settings';
 
 /** The time zones this browser knows, UTC (which it does not list) and the current one. */
 function zoneOptions(current: string): string[] {
-  return [...new Set([...Intl.supportedValuesOf('timeZone'), 'UTC', current].filter(Boolean))].sort();
+  return [
+    ...new Set([...Intl.supportedValuesOf('timeZone'), 'UTC', current].filter(Boolean)),
+  ].sort();
 }
 
 /** The value must be one of `values`: the list offers them all. */
@@ -48,6 +59,7 @@ type Field = 'language' | 'timezone';
   selector: 'app-settings-page',
   imports: [
     AccountSettings,
+    AiSettings,
     CrmLinkSettings,
     MatAutocompleteModule,
     MatButtonModule,
@@ -73,10 +85,15 @@ export class SettingsPage {
 
   protected readonly form = new FormGroup({
     language: new FormControl('en', { nonNullable: true, validators: [Validators.required] }),
-    timezone: new FormControl('', { nonNullable: true, validators: [Validators.required, oneOf(() => this.zoneNames())] }),
+    timezone: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, oneOf(() => this.zoneNames())],
+    }),
   });
 
-  private readonly typedZone = toSignal(this.form.controls.timezone.valueChanges, { initialValue: '' });
+  private readonly typedZone = toSignal(this.form.controls.timezone.valueChanges, {
+    initialValue: '',
+  });
 
   /** The time zones offered: all while the field holds one, else those whose name has what is typed. */
   protected readonly zoneChoices = computed(() => {

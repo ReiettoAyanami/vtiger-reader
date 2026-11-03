@@ -74,13 +74,14 @@ describe('source rules', () => {
       // the accounts module. Unlinking a CRM account deletes its row: the sealed access key is not
       // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
       // preference, not a record (tickets/repository.ts); so is deleting one of one's lists
-      // (lists/repository.ts).
+      // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts).
       const normalized = file.replace(/\\/g, '/');
       if (
         normalized.includes('/src/modules/accounts/') ||
         normalized.endsWith('/src/modules/crm/repository.ts') ||
         normalized.endsWith('/src/modules/tickets/repository.ts') ||
-        normalized.endsWith('/src/modules/lists/repository.ts')
+        normalized.endsWith('/src/modules/lists/repository.ts') ||
+        normalized.endsWith('/src/modules/ai/repository.ts')
       ) {
         continue;
       }

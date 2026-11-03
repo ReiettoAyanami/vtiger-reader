@@ -6,6 +6,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import { ApiError } from '../data/api-error';
 import { CrmLinkApi } from '../data/crm-link-api';
+import { AiApi } from '../data/ai-api';
 import { Settings } from '../data/settings';
 import { SettingsApi } from '../data/settings-api';
 import { Appearance } from '../ui/appearance';
@@ -19,8 +20,10 @@ describe('SettingsPage', () => {
   let snacks: string[];
 
   const element = () => fixture.nativeElement as HTMLElement;
-  const text = (e: Element | null | undefined) => (e?.textContent ?? '').replace(/\s+/g, ' ').trim();
-  const input = (name: string) => element().querySelector<HTMLInputElement>(`input[formControlName="${name}"]`)!;
+  const text = (e: Element | null | undefined) =>
+    (e?.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const input = (name: string) =>
+    element().querySelector<HTMLInputElement>(`input[formControlName="${name}"]`)!;
   const saveButton = () => element().querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
   async function type(name: string, value: string): Promise<void> {
@@ -65,7 +68,30 @@ describe('SettingsPage', () => {
           provide: CrmLinkApi,
           useValue: {
             getLink: () =>
-              of({ crmUrl: 'https://crm.example.invalid', linked: false, username: null, linkedAt: null, lastLoginAt: null, problem: null }),
+              of({
+                crmUrl: 'https://crm.example.invalid',
+                linked: false,
+                username: null,
+                linkedAt: null,
+                lastLoginAt: null,
+                problem: null,
+              }),
+          },
+        },
+        {
+          provide: AiApi,
+          useValue: {
+            providers: () => of([]),
+            tasks: () =>
+              of({
+                default: null,
+                summary: null,
+                reply: null,
+                photos: null,
+                history: null,
+                question: null,
+              }),
+            usage: () => of([]),
           },
         },
         { provide: MatSnackBar, useValue: { open: (message: string) => snacks.push(message) } },
@@ -100,7 +126,9 @@ describe('SettingsPage', () => {
     await save();
 
     expect(sent).toEqual([]);
-    expect(Array.from(element().querySelectorAll('mat-error')).map(text)).toEqual(['Choose one of the list']);
+    expect(Array.from(element().querySelectorAll('mat-error')).map(text)).toEqual([
+      'Choose one of the list',
+    ]);
   });
 
   it('offers the time zones by name, filtered by what is typed', async () => {
@@ -116,23 +144,32 @@ describe('SettingsPage', () => {
 
   it("puts the API's errors under their field, the others above the button", async () => {
     answer = () =>
-      throwError(
-        (): ApiError => ({
-          status: 400,
-          code: 'validation',
-          title: 'Bad Request',
-          detail: 'invalid',
-          fieldErrors: [{ field: 'timezone', message: 'timezone "Europe/London" is not a valid IANA time zone' }],
-        }),
-      );
+      throwError((): ApiError => ({
+        status: 400,
+        code: 'validation',
+        title: 'Bad Request',
+        detail: 'invalid',
+        fieldErrors: [
+          { field: 'timezone', message: 'timezone "Europe/London" is not a valid IANA time zone' },
+        ],
+      }));
     await open();
     await type('timezone', 'Europe/London');
     await save();
 
-    expect(text(element().querySelector('.timezone mat-error'))).toBe('timezone "Europe/London" is not a valid IANA time zone');
+    expect(text(element().querySelector('.timezone mat-error'))).toBe(
+      'timezone "Europe/London" is not a valid IANA time zone',
+    );
     expect(saveButton().disabled).toBe(false);
 
-    answer = () => throwError((): ApiError => ({ status: null, code: null, title: 'No connection', detail: '', fieldErrors: [] }));
+    answer = () =>
+      throwError((): ApiError => ({
+        status: null,
+        code: null,
+        title: 'No connection',
+        detail: '',
+        fieldErrors: [],
+      }));
     await type('timezone', 'Europe/Paris'); // a new value clears the API's error
     await save();
     expect(text(element().querySelector('.form-error'))).toBe('Could not save: No connection');

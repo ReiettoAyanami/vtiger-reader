@@ -4,6 +4,6 @@ import { defineConfig } from 'vitest/config';
 // and their Material modules: under a full parallel run that can pass Vitest's 5 s.
 export default defineConfig({
   test: {
-    testTimeout: 15_000,
+    testTimeout: 30_000,
   },
 });

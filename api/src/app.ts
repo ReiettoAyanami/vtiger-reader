@@ -16,6 +16,9 @@ import { authDatabase } from './modules/identity/insert-memory.js';
 import { accountRoutes, identityRoutes } from './modules/identity/routes.js';
 import { SIGN_IN_DELAY, SignInThrottle, type SignInDelay } from './modules/identity/throttle.js';
 import { settingsRoutes } from './modules/settings/routes.js';
+import { AiError } from './modules/ai/adapter.js';
+import { aiRoutes } from './modules/ai/routes.js';
+import { AiService } from './modules/ai/service.js';
 import { listRoutes } from './modules/lists/routes.js';
 import { ListsService } from './modules/lists/service.js';
 import { ticketRoutes } from './modules/tickets/routes.js';
@@ -47,6 +50,8 @@ export interface BuildAppOptions {
    * waits, and the sleep of those waits, to see which ones are asked for).
    */
   auth?: Partial<AuthConfig> & { rateLimit?: boolean; signInDelay?: SignInDelay; signInSleep?: (ms: number) => Promise<void> };
+  /** The AI providers' HTTP client and host check (tests: fake providers). */
+  ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[] };
   /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
   crm?: Partial<CrmConfig> & { fetch?: Fetch; hostAllowed?: (host: string) => Promise<boolean> };
 }
@@ -77,6 +82,24 @@ function validationErrors(err: FastifyError): ProblemFieldError[] {
         .join('.') || (err.validationContext ?? '');
     return { field, message: v.message ?? 'is invalid' };
   });
+}
+
+/** An AI provider's failure, before any answer was streamed, as a problem. */
+function aiProblem(error: AiError): ProblemBody {
+  switch (error.kind) {
+    case 'auth':
+      return problemBody(409, 'ai-auth', error.message);
+    case 'rate-limit':
+      return problemBody(429, 'ai-rate-limit', error.message);
+    case 'unreachable':
+      return problemBody(503, 'ai-unreachable', error.message);
+    case 'address':
+      return problemBody(409, 'ai-address', error.message);
+    case 'bad-request':
+      return problemBody(400, 'ai-bad-request', error.message);
+    default:
+      return problemBody(502, 'ai-error', error.message);
+  }
 }
 
 function isApiPath(url: string): boolean {
@@ -113,6 +136,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // Every error leaves as Problem Details.
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ProblemError) return sendProblem(reply, error.toBody());
+    if (error instanceof AiError) return sendProblem(reply, aiProblem(error));
     if (error instanceof CrmError) {
       if (error.kind === 'refused') request.log.error({ err: error }, 'a CRM operation outside the read-only list');
       return sendProblem(reply, crmProblem(error).toBody());
@@ -195,7 +219,14 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   crmLinkRoutes(app, { links });
   const lists = new ListsService(pool);
   listRoutes(app, { lists });
-  ticketRoutes(app, { tickets: new TicketsService(pool, crmClient, lists), lists });
+  const tickets = new TicketsService(pool, crmClient, lists);
+  ticketRoutes(app, { tickets, lists });
+  const ai = new AiService(pool, new SecretBox(crmConfig.encryptionKey), {
+    privateHosts: opts.ai?.privateHosts ?? loadConfig().ai.privateHosts,
+    ...(opts.ai?.fetch ? { fetch: opts.ai.fetch } : {}),
+    ...(opts.ai?.hostAllowed ? { hostAllowed: opts.ai.hostAllowed } : {}),
+  });
+  aiRoutes(app, { ai, tickets, settings });
   adminRoutes(app, { admin: new AdminService(identity, accounts) });
 
   if (opts.webDist) {

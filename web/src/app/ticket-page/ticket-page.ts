@@ -14,6 +14,7 @@ import { TicketsApi } from '../data/tickets-api';
 import { Session } from '../session/session';
 import { statusColor } from '../ui/status-color';
 import { WhenPipe } from '../ui/when';
+import { AiPanel } from './ai-panel/ai-panel';
 import { FilesView } from './files-view/files-view';
 import { MailView } from './mail-view/mail-view';
 
@@ -40,6 +41,7 @@ function apiErrorOf(error: unknown): Partial<ApiError> | null {
 @Component({
   selector: 'app-ticket-page',
   imports: [
+    AiPanel,
     FilesView,
     MailView,
     MatButtonModule,
@@ -73,6 +75,13 @@ export class TicketPage {
     params: () => (this.ticket.hasValue() ? this.id() : undefined),
     stream: ({ params }) => this.api.attachments(params),
   });
+
+  /** The AI panel (plan 4.4): closed until asked for; closing it forgets its conversation. */
+  protected readonly aiOpen = signal(false);
+  /** Real photos (not signature logos): the panel offers "Look at the photos". */
+  protected readonly hasPhotos = computed(() =>
+    this.files().some((f) => f.type.startsWith('image/') && f.inline && !f.signature),
+  );
 
   /** The first comment repeats the description (mail tickets): folded, shown on request. */
   protected readonly showRepeated = signal(false);

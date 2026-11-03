@@ -1,0 +1,145 @@
+/* A window at the right, over the ticket (glass, as every window); on a phone, the whole screen. */
+.panel {
+  position: fixed;
+  z-index: 20;
+  top: 72px;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  border: var(--app-border) solid var(--mat-sys-outline-variant);
+  background: color-mix(in srgb, var(--mat-sys-surface-container) var(--app-glass), transparent);
+  backdrop-filter: var(--app-glass-filter);
+  box-shadow: var(--mat-sys-level3);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.spark {
+  color: var(--mat-sys-primary);
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+}
+
+.thread {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.intro {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.asked {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 6px 12px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-body-medium);
+  overflow-wrap: anywhere;
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.text {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.waiting {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.problem {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-error);
+}
+
+.sources {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--mat-sys-body-small);
+}
+
+.sources a {
+  color: var(--mat-sys-primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.model {
+  margin-left: auto;
+  font: var(--mat-sys-label-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.foot {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.question mat-form-field {
+  width: 100%;
+}
+
+.question-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 599px) {
+  .panel {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    border-radius: 0;
+    border: none;
+  }
+}

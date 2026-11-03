@@ -4,6 +4,7 @@ import type { Owner } from '../../shared/owner.js';
 import { Semaphore, type CrmClient } from '../crm/client.js';
 import { containsLiteral, idLiteral, isRecordId, literal, MAX_ROWS } from '../crm/vtql.js';
 import { CrmError } from '../crm/webservice.js';
+import sharp from 'sharp';
 import { looksLikeLogo, markFor, opensInline, printOf, sniffType, type Mark } from './files.js';
 import type { ListFilter } from '../lists/filter.js';
 import type { ListsService } from '../lists/service.js';
@@ -106,6 +107,34 @@ export interface TicketDetail extends TicketRow {
   fields: Field[];
   comments: Comment[];
   documents: Array<{ id: string; title: string; fileName: string; files: string[] }>;
+}
+
+/** A closed ticket that may be the same problem (plan 4.6). */
+export interface SimilarTicket {
+  id: string;
+  number: string;
+  title: string;
+  solution: string;
+  closedAt: string | null;
+  /** How many of the searched words it has. */
+  score: number;
+}
+
+/** Words that say nothing about a problem (Italian and English), left out of a search. */
+const STOPWORDS = new Set(
+  'alla allo alle agli dalla dalle dagli della delle degli nella nelle negli sulla sulle sugli come cosa questo questa quello quella sono siamo hanno ancora anche dopo prima perché quando dove senza tutto tutti tutte molto poco però oppure quindi grazie buongiorno salve gentile richiesta problema ticket cliente ufficio della with from that this have been there their they what when where which would could should about after before your please thanks hello issue problem request ticket'.split(
+    ' ',
+  ),
+);
+
+/** The words of a title worth searching: 4 letters or more, not a stopword, at most 5. */
+export function searchWords(text: string): string[] {
+  const words = text
+    .toLowerCase()
+    .normalize('NFC')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length >= 4 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+  return [...new Set(words)].slice(0, 5);
 }
 
 export interface Attachment {
@@ -571,5 +600,86 @@ export class TicketsService {
         organization: organization ? { id: organization, name: organizations.get(organization) ?? null } : null,
       };
     });
+  }
+
+  /**
+   * Closed tickets that may be the same problem (plan 4.6): the title's words searched in the
+   * titles and solutions of the closed tickets (one query per word and field: the CRM's VTQL has no
+   * OR between different conditions, nor parentheses), ranked by how many words they share. Read
+   * from the CRM now; nothing indexed or kept.
+   */
+  async similarClosed(owner: Owner, ticket: { id: string; title: string }): Promise<SimilarTicket[]> {
+    const schema = await this.schema(owner);
+    const words = searchWords(ticket.title);
+    if (words.length === 0 || schema.closedStatuses.length === 0) return [];
+    const closed = `ticketstatus IN (${schema.closedStatuses.map(literal).join(', ')})`;
+    const fields = ['ticket_no', 'ticket_title', 'modifiedtime', ...(schema.solution ? [schema.solution] : [])];
+    const searchIn = ['ticket_title', ...(schema.solution ? [schema.solution] : [])];
+    const lookups = new Semaphore(4);
+    const found = await Promise.all(
+      words.flatMap((word) =>
+        searchIn.map((field) =>
+          lookups.run(() =>
+            this.crm
+              .select(owner, {
+                module: 'HelpDesk',
+                fields,
+                where: `${field} LIKE ${containsLiteral(word)} AND ${closed}`,
+                orderBy: { field: 'modifiedtime', direction: 'DESC' },
+                limit: 20,
+              })
+              .catch((error: unknown) => {
+                if (error instanceof CrmError && (error.kind === 'failed' || error.kind === 'denied')) return [];
+                throw error;
+              }),
+          ),
+        ),
+      ),
+    );
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const row of found.flat()) if (str(row.id) !== ticket.id) byId.set(str(row.id), row);
+    return [...byId.values()]
+      .map((row) => {
+        const solution = schema.solution ? cleanMail(str(row[schema.solution]), 800).text : '';
+        const text = `${str(row.ticket_title)} ${solution}`.toLowerCase();
+        return {
+          id: str(row.id),
+          number: str(row.ticket_no),
+          title: str(row.ticket_title),
+          solution,
+          closedAt: crmInstant(row.modifiedtime),
+          score: words.filter((w) => text.includes(w)).length,
+        };
+      })
+      .sort((a, b) => b.score - a.score || String(b.closedAt).localeCompare(String(a.closedAt)))
+      .slice(0, 5);
+  }
+
+  /**
+   * The ticket's photos for the AI (plan 4.5): its images that are not signature logos, the
+   * heaviest 6, each made a JPEG of at most 1536 px. Sent only when the user asks for them.
+   */
+  async photosForAi(owner: Owner, id: string): Promise<Array<{ name: string; data: string }>> {
+    const photos = (await this.attachments(owner, id))
+      .filter((a) => a.type.startsWith('image/') && a.inline && !a.signature)
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 6);
+    const ready = await Promise.all(
+      photos.map(async (photo) => {
+        const file = await this.crm.file(owner, photo.id);
+        if (!file) return null;
+        try {
+          const jpeg = await sharp(file.data, { failOn: 'none', animated: false })
+            .rotate()
+            .resize({ width: 1536, height: 1536, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+          return { name: photo.name, data: jpeg.toString('base64') };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return ready.filter((p): p is { name: string; data: string } => p !== null);
   }
 }

@@ -1,0 +1,103 @@
+<aside class="panel" aria-labelledby="ai-title">
+  <header class="head">
+    <mat-icon class="spark" aria-hidden="true">auto_awesome</mat-icon>
+    <h2 class="title" id="ai-title">Ask the AI</h2>
+    <button
+      mat-icon-button
+      type="button"
+      class="close"
+      aria-label="Close the AI panel"
+      (click)="close()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  <div class="thread" aria-live="polite">
+    @for (exchange of exchanges(); track $index) {
+      <div class="asked">{{ askedLabel(exchange) }}</div>
+      <div class="answer" [class.error]="exchange.error">
+        @if (exchange.sources.length > 0) {
+          <ul class="sources" aria-label="Closed tickets found">
+            @for (source of exchange.sources; track source.id) {
+              <li>
+                <a [routerLink]="session.path('/tickets/' + source.id)">{{ source.number }}</a>
+                {{ source.title }}
+              </li>
+            }
+          </ul>
+        }
+        @if (exchange.text) {
+          <p class="text">{{ exchange.text }}</p>
+        } @else if (exchange.streaming) {
+          <p class="text waiting">…</p>
+        }
+        @if (exchange.error; as message) {
+          <p class="problem" role="alert">{{ message }}</p>
+          @if (exchange.needsSetup) {
+            <a mat-stroked-button [routerLink]="session.path('/settings')">Settings</a>
+          }
+        }
+        @if (!exchange.streaming && !exchange.error && exchange.text) {
+          <div class="actions">
+            <button mat-button type="button" (click)="copy(exchange.text)">
+              <mat-icon>content_copy</mat-icon>
+              Copy
+            </button>
+            @if (exchange.task === 'reply') {
+              <span matTooltip="Read-only for now" tabindex="0">
+                <button mat-button type="button" disabled>
+                  <mat-icon>send</mat-icon>
+                  Send to CRM
+                </button>
+              </span>
+            }
+            @if (exchange.model) {
+              <span class="model">{{ exchange.model }}</span>
+            }
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="intro">
+        Ask about this ticket. The AI reads it from the CRM now; the conversation is gone when you
+        close the panel.
+      </p>
+    }
+  </div>
+
+  <footer class="foot">
+    @if (busy()) {
+      <button mat-stroked-button type="button" class="stop" (click)="stop()">
+        <mat-icon>stop</mat-icon>
+        Stop
+      </button>
+    } @else if (asking()) {
+      <form class="question" (submit)="$event.preventDefault(); sendQuestion()">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Your question</mat-label>
+          <textarea
+            matInput
+            [formControl]="question"
+            rows="2"
+            maxlength="4000"
+            cdkFocusInitial
+            (keydown.enter)="$event.preventDefault(); sendQuestion()"
+          ></textarea>
+        </mat-form-field>
+        <div class="question-actions">
+          <button mat-button type="button" (click)="asking.set(false)">Cancel</button>
+          <button mat-flat-button type="submit" [disabled]="!questionText().trim()">Ask</button>
+        </div>
+      </form>
+    } @else {
+      <div class="chips">
+        @for (chip of chips(); track chip.task) {
+          <button mat-stroked-button type="button" class="chip" (click)="choose(chip.task)">
+            {{ chip.chip }}
+          </button>
+        }
+      </div>
+    }
+  </footer>
+</aside>

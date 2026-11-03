@@ -1,0 +1,90 @@
+/* Apart from the sections above it, like the CRM account. */
+.ai {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.title {
+  margin: 0 0 8px;
+  font: var(--mat-sys-title-medium);
+}
+
+.sub {
+  margin: 8px 0 0;
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.note {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.provider {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.provider-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.provider-name {
+  font: var(--mat-sys-body-large);
+}
+
+.row-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* One line per task: its name, the provider, the model; two lines on a phone. */
+.choice {
+  --mat-form-field-container-height: 48px;
+  --mat-form-field-container-vertical-padding: 12px;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.choice-label {
+  font: var(--mat-sys-body-medium);
+}
+
+.usage {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage li {
+  display: flex;
+  flex-direction: column;
+}
+
+.usage-model {
+  font: var(--mat-sys-body-medium);
+}
+
+@media (max-width: 599px) {
+  .choice {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .choice-label {
+    grid-column: 1 / -1;
+  }
+}

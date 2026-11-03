@@ -71,7 +71,15 @@ export class Api {
 }
 
 export async function makeApi(
-  opts: { clock?: Clock; webDist?: string; crm?: FakeCrm; encryptionKey?: Buffer; hostAllowed?: (host: string) => Promise<boolean> } = {},
+  opts: {
+    clock?: Clock;
+    webDist?: string;
+    crm?: FakeCrm;
+    encryptionKey?: Buffer;
+    hostAllowed?: (host: string) => Promise<boolean>;
+    /** Fake AI providers (support/fake-ai.ts), and the hosts AI_PRIVATE_HOSTS would list. */
+    ai?: { fetch: typeof fetch; privateHosts?: string[] };
+  } = {},
 ): Promise<Api> {
   // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one
   // (its made-up host allowed), or no network at all: a test never calls a real address.
@@ -83,6 +91,11 @@ export async function makeApi(
     webDist: opts.webDist,
     auth: { rateLimit: false },
     crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
+    ai: {
+      fetch: opts.ai?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests'))),
+      hostAllowed: opts.hostAllowed ?? (async () => true),
+      privateHosts: opts.ai?.privateHosts ?? [],
+    },
   });
   await app.ready();
   return new Api(app);

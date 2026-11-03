@@ -14,6 +14,7 @@ import { AuthApi, type SessionUser } from './data/auth-api';
 import { CrmLinkApi } from './data/crm-link-api';
 import { SettingsApi } from './data/settings-api';
 import { TicketsApi } from './data/tickets-api';
+import { AiApi } from './data/ai-api';
 import { ListsApi } from './data/lists-api';
 import { VersionApi } from './data/version-api';
 
@@ -35,6 +36,23 @@ function pageData(getSettings: () => unknown) {
             lastLoginAt: null,
             problem: null,
           }),
+      },
+    },
+    // the settings' AI section
+    {
+      provide: AiApi,
+      useValue: {
+        providers: () => of([]),
+        tasks: () =>
+          of({
+            default: null,
+            summary: null,
+            reply: null,
+            photos: null,
+            history: null,
+            question: null,
+          }),
+        usage: () => of([]),
       },
     },
     // the start page: the tickets, through the user's lists

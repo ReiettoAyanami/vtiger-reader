@@ -6,7 +6,7 @@ The stock vtiger interface is slow. vtiger-reader shows the same tickets faster,
 
 **The CRM stays the only source of CRM data.** vtiger-reader stores its users and their preferences, nothing the CRM already holds: tickets, comments, customers and attachments are read from the CRM at every request.
 
-> Status: early development. Accounts, settings, each user's CRM link and the tickets work (folders, search, filters, a ticket with its mails cleaned or raw, attachments, signature images set aside); the AI panel and notifications come next. Read-only: the buttons that would write to the CRM are there, disabled.
+> Status: early development. Accounts, settings, each user's CRM link, the tickets (each user's own lists, search, filters, a ticket with its mails cleaned or raw, attachments, signature images set aside) and the AI panel (each user's own providers and models: summarize, draft a reply, look at the photos, has this happened before, any question) work; notifications come next. Read-only: the buttons that would write to the CRM are there, disabled.
 
 ## Stack
 

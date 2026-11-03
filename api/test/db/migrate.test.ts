@@ -54,6 +54,9 @@ describe('migrations', () => {
     // Users and their preferences only: nothing the CRM already holds (lenzi, 2026-11-03).
     expect(tables.map((t) => t.name)).toEqual([
       'accounts',
+      'ai_provider',
+      'ai_task_model',
+      'ai_usage',
       'crm_link',
       'image_mark',
       'password_history',
@@ -72,6 +75,13 @@ describe('migrations', () => {
         ORDER BY TABLE_NAME, COLUMN_NAME`,
     );
     expect(unique.map((u) => `${u.t}.${u.c}`)).toEqual([
+      'ai_task_model.task',
+      'ai_task_model.user_id',
+      'ai_usage.day',
+      'ai_usage.kind',
+      'ai_usage.model',
+      'ai_usage.task',
+      'ai_usage.user_id',
       'crm_link.user_id',
       'image_mark.exact_hash',
       'image_mark.user_id',
@@ -87,6 +97,10 @@ describe('migrations', () => {
     );
     expect(fks.map((f) => `${f.t}.${f.c}->${f.r}`)).toEqual([
       'accounts.user_id->users',
+      'ai_provider.user_id->users',
+      'ai_task_model.provider_id->ai_provider',
+      'ai_task_model.user_id->users',
+      'ai_usage.user_id->users',
       'crm_link.user_id->users',
       'image_mark.user_id->users',
       'password_history.user_id->users',
