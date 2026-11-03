@@ -172,7 +172,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       # Built on every push (the Dockerfile must keep working); pushed only when published. amd64 for
       # now.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
