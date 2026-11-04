@@ -6,7 +6,6 @@ import { buildApp } from '../../src/app.js';
 import { createPool } from '../../src/db/pool.js';
 import { Api, expectProblem, fixedClock, makeApi } from '../support/api.js';
 import { testDbConfig, testPool } from '../support/db.js';
-import { TESTER, cookieOf } from '../support/session.js';
 import { API_LEVEL, VERSION, VERSION_FORMAT } from '../../src/version.js';
 
 let api: Api;
@@ -28,7 +27,7 @@ describe('GET /api/health', () => {
     const deadPool = createPool({ ...testDbConfig(), host: '127.0.0.1', port: 1 });
     const app = await buildApp({ pool: deadPool, clock: fixedClock });
     try {
-      const res = await new Api(app, null).get('/api/health'); // public: no user needed
+      const res = await new Api(app).get('/api/health');
       expectProblem(res, 503, 'database-unavailable');
       expect(res.body.db).toBe('error');
     } finally {
@@ -103,7 +102,7 @@ describe('Problem Details', () => {
     const res = await api.app.inject({
       method: 'PATCH',
       url: '/api/settings',
-      headers: { 'content-type': 'application/json', cookie: await cookieOf(api.app, TESTER) },
+      headers: { 'content-type': 'application/json' },
       payload: '{"timezone": ',
     });
     expect(res.statusCode).toBe(400);
@@ -114,7 +113,7 @@ describe('Problem Details', () => {
     const res = await api.app.inject({
       method: 'PATCH',
       url: '/api/settings',
-      headers: { 'content-type': 'application/xml', cookie: await cookieOf(api.app, TESTER) },
+      headers: { 'content-type': 'application/xml' },
       payload: '<settings/>',
     });
     expect(res.statusCode).toBe(415);
@@ -188,11 +187,11 @@ describe('security headers (lenzi, 2026-10-03: "si")', () => {
 
   it.each([
     ['the app', 'GET', '/'],
-    ['a deep page of the app', 'GET', '/lenzi/tickets'],
+    ['a deep page of the app', 'GET', '/tickets/17x1'],
     ['a file of the build', 'GET', '/main.js'],
     ['an API answer', 'GET', '/api/health'],
-    ['an API error (no session)', 'GET', '/api/settings'],
-    ['a refused sign-in (another origin)', 'POST', '/api/auth/sign-in/username'],
+    ['an API answer of the profile', 'GET', '/api/settings'],
+    ['an API error (no such route)', 'GET', '/api/nothing-here'],
   ] as const)('on every answer: %s', async (_what, method, url) => {
     const res = await web.req(method, url);
     expect(res.headers['content-security-policy']).toBe(POLICY);
@@ -204,7 +203,7 @@ describe('security headers (lenzi, 2026-10-03: "si")', () => {
   });
 
   it('HSTS only for an instance opened over https: the browser keeps to https for a year', async () => {
-    const app = await buildApp({ pool: testPool(), clock: fixedClock, auth: { appUrl: 'https://tickets.example.invalid', rateLimit: false } });
+    const app = await buildApp({ pool: testPool(), clock: fixedClock, appUrl: 'https://tickets.example.invalid' });
     try {
       const res = await app.inject({ method: 'GET', url: '/api/version' });
       expect(res.headers['strict-transport-security']).toBe('max-age=31536000');

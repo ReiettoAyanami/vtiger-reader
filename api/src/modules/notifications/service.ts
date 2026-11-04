@@ -176,11 +176,11 @@ export class NotificationsService {
   }
 
   /** A test notification to each of the user's browsers; how many took it. */
-  async test(owner: Owner, username: string): Promise<number> {
+  async test(owner: Owner): Promise<number> {
     return this.push.send(owner, {
       title: 'vtiger-reader',
       body: 'Notifications work on this device.',
-      url: `/${username}`,
+      url: '/',
       tag: `test-${owner.userId}`,
     });
   }
@@ -258,13 +258,13 @@ export class NotificationsService {
     );
     if (found.length === 0) return [];
     this.tell(owner, { count: found.length });
-    await this.push.send(owner, messageFor(user.username, owner, found));
+    await this.push.send(owner, messageFor(owner, found));
     return found;
   }
 }
 
 /** One ticket: its number and title, opening it. Several: how many, opening the list (plan 5.3). */
-export function messageFor(username: string, owner: Owner, found: readonly TicketRow[]): PushMessage {
+export function messageFor(owner: Owner, found: readonly TicketRow[]): PushMessage {
   const tag = `tickets-${owner.userId}`;
   const first = found[0];
   if (found.length === 1 && first) {
@@ -272,7 +272,7 @@ export function messageFor(username: string, owner: Owner, found: readonly Ticke
     return {
       title: `${first.number} ${first.title}`.trim(),
       body: [who, first.priority, first.category].filter(Boolean).join(' · ') || 'New ticket',
-      url: `/${username}/tickets/${first.id}`,
+      url: `/tickets/${first.id}`,
       tag,
     };
   }
@@ -280,7 +280,7 @@ export function messageFor(username: string, owner: Owner, found: readonly Ticke
   return {
     title: `${found.length} new tickets`,
     body: titles.join('\n') + (found.length > 3 ? '\n…' : ''),
-    url: `/${username}`,
+    url: '/',
     tag,
   };
 }

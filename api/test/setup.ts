@@ -1,10 +1,11 @@
 import { afterAll, beforeEach } from 'vitest';
-import { closeTestPool, resetDatabase } from './support/db.js';
-import { forgetTestUsers } from './support/session.js';
+import { ensureLocalProfile } from '../src/modules/profile/profile.js';
+import { closeTestPool, resetDatabase, testPool } from './support/db.js';
 
 beforeEach(async () => {
   await resetDatabase();
-  forgetTestUsers();
+  // The app's one profile, as the first start makes it (server.ts).
+  await ensureLocalProfile(testPool());
 });
 
 afterAll(async () => {

@@ -4,18 +4,14 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
-import { AuthApi, type SessionUser } from '../data/auth-api';
 import { TicketList } from '../data/lists';
 import { ListsApi } from '../data/lists-api';
 import { SettingsApi } from '../data/settings-api';
 import { ListQuery, TicketOptions, TicketPage, TicketRow } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
 import { HistoryDialogs } from '../history-dialogs';
-import { Session } from '../session/session';
 import { ListDialog } from './list-dialog/list-dialog';
 import { TicketsPage } from './tickets-page';
-
-const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'user', impersonatedBy: null };
 
 const LISTS: TicketList[] = [
   { id: 11, name: 'My tickets', filter: { owner: 'me', status: 'any' } },
@@ -58,7 +54,7 @@ describe('TicketsPage', () => {
   let dialogs: unknown[];
   let list: (query: ListQuery) => Observable<TicketPage>;
 
-  async function render(url = '/lenzi') {
+  async function render(url = '/') {
     asked = [];
     namesAsked = [];
     countsAsked = 0;
@@ -66,9 +62,8 @@ describe('TicketsPage', () => {
     TestBed.configureTestingModule({
       imports: [TicketsPage],
       providers: [
-        provideRouter([{ path: ':username', component: TicketsPage }]),
+        provideRouter([{ path: '', component: TicketsPage }]),
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: AuthApi, useValue: { getSession: () => of(lenzi) } },
         {
           provide: SettingsApi,
           useValue: { getSettings: () => of({ language: 'en', timezone: 'UTC' }) },
@@ -96,7 +91,6 @@ describe('TicketsPage', () => {
         },
       ],
     });
-    await TestBed.inject(Session).load();
     await TestBed.inject(Router).navigateByUrl(url);
     const fixture = TestBed.createComponent(TicketsPage);
     await fixture.whenStable();
@@ -143,7 +137,7 @@ describe('TicketsPage', () => {
     expect(asked[0]).toMatchObject({ page: 0, size: 50, sort: 'created', dir: 'desc' });
     expect(asked[0]?.list).toBeUndefined();
     expect(page.text('.row .title')).toEqual(['Ticket 17x1', 'Ticket 17x2']);
-    expect(page.element.querySelector('.row')?.getAttribute('href')).toBe('/lenzi/tickets/17x1');
+    expect(page.element.querySelector('.row')?.getAttribute('href')).toBe('/tickets/17x1');
     expect(page.text('.row .owner')).toEqual(['person Me', 'groups Primo livello']);
     const chips = [...page.element.querySelectorAll<HTMLElement>('.row .status-chip')];
     expect(chips.map((c) => c.textContent?.trim())).toEqual(['Aperto', 'Chiuso']);
@@ -165,7 +159,7 @@ describe('TicketsPage', () => {
     const page = await render();
     page.element.querySelectorAll<HTMLButtonElement>('.list-button')[2]!.click();
     await page.settle();
-    expect(TestBed.inject(Router).url).toBe('/lenzi?list=13');
+    expect(TestBed.inject(Router).url).toBe('/?list=13');
     expect(asked.at(-1)).toMatchObject({ list: 13 });
     expect(page.element.querySelector('.list.current .list-name')?.textContent).toBe('All tickets');
   });
@@ -178,7 +172,7 @@ describe('TicketsPage', () => {
   });
 
   it('from the address: list, search, status, page, order', async () => {
-    await render('/lenzi?list=12&q=vpn&status=Closed&page=2&sort=modified-desc');
+    await render('/?list=12&q=vpn&status=Closed&page=2&sort=modified-desc');
     expect(asked[0]).toMatchObject({
       list: 12,
       q: 'vpn',
@@ -195,7 +189,7 @@ describe('TicketsPage', () => {
     expect(page.text('.range')).toEqual(['1–1 of 120']);
     page.element.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click();
     await page.settle();
-    expect(TestBed.inject(Router).url).toBe('/lenzi?page=1');
+    expect(TestBed.inject(Router).url).toBe('/?page=1');
   });
 
   it('no CRM account linked: the card to Settings, instead of the tickets', async () => {
@@ -243,7 +237,7 @@ describe('TicketsPage', () => {
 
   it('nothing found: said', async () => {
     list = () => of({ items: [], page: 0, size: 50, total: 0 });
-    const page = await render('/lenzi?q=zzz');
+    const page = await render('/?q=zzz');
     expect(page.text('.message')).toEqual(['No tickets here for “zzz”.']);
   });
 });

@@ -1,9 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { Session } from '../../session/session';
 
 /** In place of the tickets while the user has no CRM account linked: one card, to Settings. */
 @Component({
@@ -17,7 +16,7 @@ import { Session } from '../../session/session';
         The tickets are read from your own CRM account: its address, your username and your access
         key.
       </p>
-      <a mat-flat-button [routerLink]="session.path('/settings')">Settings</a>
+      <a mat-flat-button routerLink="/settings">Settings</a>
     </section>
   `,
   styles: `
@@ -56,6 +55,4 @@ import { Session } from '../../session/session';
     }
   `,
 })
-export class LinkCrmCard {
-  protected readonly session = inject(Session);
-}
+export class LinkCrmCard {}

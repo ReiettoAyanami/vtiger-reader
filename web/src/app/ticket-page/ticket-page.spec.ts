@@ -5,16 +5,12 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, throwError } from 'rxjs';
 
-import { AuthApi, type SessionUser } from '../data/auth-api';
 import { SettingsApi } from '../data/settings-api';
 import { Attachment, TicketDetail } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
 import { AiApi } from '../data/ai-api';
 import { HistoryDialogs } from '../history-dialogs';
-import { Session } from '../session/session';
 import { TicketPage } from './ticket-page';
-
-const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'user', impersonatedBy: null };
 
 const TICKET: TicketDetail = {
   id: '17x1',
@@ -114,9 +110,8 @@ describe('TicketPage', () => {
     marks = [];
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([{ path: ':username/tickets/:id', component: TicketPage }]),
+        provideRouter([{ path: 'tickets/:id', component: TicketPage }]),
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: AuthApi, useValue: { getSession: () => of(lenzi) } },
         {
           provide: SettingsApi,
           useValue: { getSettings: () => of({ language: 'en', timezone: 'UTC' }) },
@@ -139,9 +134,8 @@ describe('TicketPage', () => {
         },
       ],
     });
-    await TestBed.inject(Session).load();
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/lenzi/tickets/17x1', TicketPage);
+    await harness.navigateByUrl('/tickets/17x1', TicketPage);
     await harness.fixture.whenStable();
     harness.detectChanges();
     const element = harness.routeNativeElement as HTMLElement;

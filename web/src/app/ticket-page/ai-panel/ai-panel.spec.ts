@@ -2,12 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
 
 import { AskEvent, ThreadTurn } from '../../data/ai';
 import { AiApi } from '../../data/ai-api';
-import { AuthApi } from '../../data/auth-api';
-import { Session } from '../../session/session';
 import { AiPanel, askedLabel } from './ai-panel';
 
 type Ask = { task: string; question?: string; thread: ThreadTurn[] };
@@ -23,12 +20,6 @@ describe('AiPanel', () => {
       providers: [
         provideRouter([]),
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        {
-          provide: AuthApi,
-          useValue: {
-            getSession: () => of({ id: 1, username: 'lenzi', role: 'user', impersonatedBy: null }),
-          },
-        },
         { provide: MatSnackBar, useValue: { open: () => undefined } },
         {
           provide: AiApi,
@@ -41,7 +32,6 @@ describe('AiPanel', () => {
         },
       ],
     });
-    await TestBed.inject(Session).load();
     const fixture = TestBed.createComponent(AiPanel);
     fixture.componentRef.setInput('ticketId', '17x1');
     fixture.componentRef.setInput('hasPhotos', hasPhotos);
@@ -121,7 +111,7 @@ describe('AiPanel', () => {
     const page = await render();
     await page.click('Has this happened before?');
     expect(page.element.querySelector('.sources a')?.getAttribute('href')).toBe(
-      '/lenzi/tickets/17x2',
+      '/tickets/17x2',
     );
   });
 
@@ -138,7 +128,7 @@ describe('AiPanel', () => {
     const page = await render();
     await page.click('Summarize it');
     expect(page.text('.problem')).toEqual(['No AI model is set up']);
-    expect(page.element.querySelector('.answer a')?.getAttribute('href')).toBe('/lenzi/settings');
+    expect(page.element.querySelector('.answer a')?.getAttribute('href')).toBe('/settings');
   });
 
   it('the label of what was asked', () => {

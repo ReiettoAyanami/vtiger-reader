@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { expectProblem, makeApi, type Api } from '../support/api.js';
 import { rawRows } from '../support/db.js';
-import { OTHER } from '../support/session.js';
 
 let api: Api;
 beforeAll(async () => {
@@ -70,12 +69,10 @@ describe('/api/lists', () => {
     expectProblem(await api.post('/api/lists', { name: 'x', filter: { owner: 'me', status: 'any' }, shared: true }), 400);
   });
 
-  it("another user's lists are not found, and stay as they are", async () => {
-    const mine = (await api.post('/api/lists', { name: 'Mine only', filter: { owner: 'me', status: 'any' } })).body.id;
-    const other = api.as(OTHER);
-    expect(await names(other)).not.toContain('Mine only');
-    expectProblem(await other.put(`/api/lists/${mine}`, { name: 'Taken', filter: { owner: 'me', status: 'any' } }), 404, 'not-found');
-    expectProblem(await other.del(`/api/lists/${mine}`), 404, 'not-found');
-    expect(await rawRows('SELECT name FROM ticket_list WHERE id = ?', [mine])).toEqual([{ name: 'Mine only' }]);
+  it('a list that does not exist is not found, and nothing changes', async () => {
+    const mine = (await api.post('/api/lists', { name: 'Mine', filter: { owner: 'me', status: 'any' } })).body.id;
+    expectProblem(await api.put(`/api/lists/${mine + 100}`, { name: 'Taken', filter: { owner: 'me', status: 'any' } }), 404, 'not-found');
+    expectProblem(await api.del(`/api/lists/${mine + 100}`), 404, 'not-found');
+    expect(await rawRows('SELECT name FROM ticket_list WHERE id = ?', [mine])).toEqual([{ name: 'Mine' }]);
   });
 });

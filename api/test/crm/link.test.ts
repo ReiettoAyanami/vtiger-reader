@@ -4,7 +4,7 @@ import { isPublicHost } from '../../src/shared/public-host.js';
 import { expectProblem, makeApi, type Api } from '../support/api.js';
 import { rawRows } from '../support/db.js';
 import { FakeCrm } from '../support/fake-crm.js';
-import { OTHER, TESTER, idOf } from '../support/session.js';
+import { LOCAL_USER_ID } from '../../src/modules/profile/profile.js';
 
 const CRM_URL = new FakeCrm().url;
 const MARIO = { url: CRM_URL, username: 'mario.rossi', accessKey: 'AbCdEf0123456789' };
@@ -47,7 +47,7 @@ describe('/api/crm/link', () => {
     expect(crm.operations()).toEqual(['getchallenge', 'login']);
 
     const rows = await rawRows('SELECT crm_url, crm_username, access_key_sealed, crm_user_id FROM crm_link WHERE user_id = ?', [
-      await idOf(api.app, TESTER),
+      LOCAL_USER_ID,
     ]);
     expect(rows).toEqual([{ crm_url: crm.url, crm_username: 'mario.rossi', access_key_sealed: expect.stringMatching(/^v1\./), crm_user_id: '19x5' }]);
     expect(JSON.stringify(rows)).not.toContain(MARIO.accessKey);
@@ -116,26 +116,14 @@ describe('/api/crm/link', () => {
     expect((await api.get('/api/crm/link')).body).toEqual(UNLINKED);
   });
 
-  it("a sealed key opens only for its own user, and only with the server's key", async () => {
+  it("a sealed key opens only with the app's key", async () => {
     const crm = new FakeCrm();
     const api = await start({ crm });
     await api.put('/api/crm/link', MARIO);
-    // A's sealed key copied into B's row does not open for B.
-    const b = api.as(OTHER);
-    await b.put('/api/crm/link', ANNA);
-    const [a] = await rawRows('SELECT access_key_sealed FROM crm_link WHERE user_id = ?', [await idOf(api.app, TESTER)]);
-    await rawRows('UPDATE crm_link SET access_key_sealed = ? WHERE user_id = ?', [a?.access_key_sealed, await idOf(api.app, OTHER)]);
-    expect((await b.get('/api/crm/link')).body.problem).toMatch(/link the account again/);
     expect((await api.get('/api/crm/link')).body.problem).toBeNull();
 
     // Another ENCRYPTION_KEY: the link is there, and says it must be made again.
     const rekeyed = await start({ crm, encryptionKey: randomBytes(32) });
     expect((await rekeyed.get('/api/crm/link')).body).toMatchObject({ linked: true, problem: expect.stringMatching(/encryption key/) });
-  });
-
-  it('needs a signed-in user', async () => {
-    const api = await start({ crm: new FakeCrm() });
-    expectProblem(await api.as(null).get('/api/crm/link'), 401);
-    expectProblem(await api.as(null).put('/api/crm/link', MARIO), 401);
   });
 });

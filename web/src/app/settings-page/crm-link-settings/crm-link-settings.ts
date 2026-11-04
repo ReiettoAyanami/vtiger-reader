@@ -19,7 +19,6 @@ import { ConfirmDialog, ConfirmDialogData } from '../../confirm-dialog/confirm-d
 import { ApiError } from '../../data/api-error';
 import { CrmLinkApi } from '../../data/crm-link-api';
 import { HistoryDialogs } from '../../history-dialogs';
-import { Session } from '../../session/session';
 
 function messageFor(errors: ValidationErrors | null): string | null {
   if (!errors) return null;
@@ -55,7 +54,6 @@ export class CrmLinkSettings {
   private readonly api = inject(CrmLinkApi);
   private readonly dialogs = inject(HistoryDialogs);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly session = inject(Session);
 
   protected readonly link = rxResource({ stream: () => this.api.getLink() });
 

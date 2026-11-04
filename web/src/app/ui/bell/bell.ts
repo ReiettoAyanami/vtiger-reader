@@ -9,7 +9,6 @@ import { RouterLink } from '@angular/router';
 import { NotificationsApi } from '../../data/notifications-api';
 import { TicketRow } from '../../data/tickets';
 import { LiveNotifications } from '../../notifications/live-notifications';
-import { Session } from '../../session/session';
 import { WhenPipe } from '../when';
 
 /**
@@ -26,10 +25,9 @@ import { WhenPipe } from '../when';
 export class Bell {
   private readonly api = inject(NotificationsApi);
   private readonly live = inject(LiveNotifications);
-  protected readonly session = inject(Session);
 
   protected readonly bell = rxResource({
-    params: () => ({ arrivals: this.live.arrivals(), user: this.session.user()?.username ?? null }),
+    params: () => ({ arrivals: this.live.arrivals() }),
     stream: () => this.api.bell(),
   });
 
@@ -53,6 +51,6 @@ export class Bell {
   }
 
   protected ticketPath(ticket: TicketRow): string {
-    return this.session.path(`/tickets/${ticket.id}`);
+    return `/tickets/${ticket.id}`;
   }
 }

@@ -4,7 +4,7 @@ import { expectProblem, makeApi, type Api } from '../support/api.js';
 import { rawRows } from '../support/db.js';
 import { FakeCrm } from '../support/fake-crm.js';
 import { browserSubscription, FakePush } from '../support/fake-push.js';
-import { OTHER, idOf, TESTER } from '../support/session.js';
+import { LOCAL_USER_ID } from '../../src/modules/profile/profile.js';
 
 const MARIO = { username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }; // CRM user 19x5
 /** "Now" for these tests: after the CRM's tickets. */
@@ -89,11 +89,10 @@ describe('settings', () => {
     });
   });
 
-  it('the user picks the lists and turns them off; another user\'s list is not found', async () => {
+  it('the user picks the lists and turns them off; a list that does not exist is not found', async () => {
     const res = await api.put('/api/notifications/settings', { enabled: false, lists: [lists['All tickets']] });
     expect(res.body).toEqual({ enabled: false, lists: [lists['All tickets']], devices: 0 });
-    const theirs = (await api.as(OTHER).get('/api/lists')).body[0].id as number;
-    expectProblem(await api.put('/api/notifications/settings', { enabled: true, lists: [theirs] }), 404, 'not-found');
+    expectProblem(await api.put('/api/notifications/settings', { enabled: true, lists: [9999] }), 404, 'not-found');
     expect((await api.get('/api/notifications/settings')).body.lists).toEqual([lists['All tickets']]);
   });
 });
@@ -118,8 +117,8 @@ describe('the checks', () => {
     expect(push.sent[0]!.message).toEqual({
       title: 'TK-0003 Stampante ferma',
       body: 'Mario Bianchi · High · Hardware',
-      url: '/tester/tickets/17x3',
-      tag: `tickets-${await idOf(api.app, TESTER)}`,
+      url: '/tickets/17x3',
+      tag: `tickets-${LOCAL_USER_ID}`,
     });
     // VAPID: who the push services may write to (an http instance: the administrator's mail).
     expect(push.sent[0]!.subject).toMatch(/^mailto:/);
@@ -138,7 +137,7 @@ describe('the checks', () => {
     );
     await check();
     expect(push.sent.map((s) => s.message)).toEqual([
-      { title: '2 new tickets', body: 'TK-0004 Ticket 4\nTK-0003 Ticket 3', url: '/tester', tag: expect.stringMatching(/^tickets-/) },
+      { title: '2 new tickets', body: 'TK-0004 Ticket 4\nTK-0003 Ticket 3', url: '/', tag: expect.stringMatching(/^tickets-/) },
     ]);
   });
 
@@ -165,14 +164,10 @@ describe('the checks', () => {
     expect(push.sent).toEqual([]);
   });
 
-  it('a user without a CRM link, or blocked, is not checked; a CRM down stops nobody else', async () => {
+  it('a CRM down: the check tries again next time', async () => {
     await api.put('/api/push/subscription', browserSubscription());
     await check();
     arrive(ticket(3, '2026-11-04 09:00:00'));
-    await rawRows('UPDATE users SET banned = 1 WHERE username = ?', ['tester']);
-    await check();
-    expect(push.sent).toEqual([]);
-    await rawRows('UPDATE users SET banned = 0');
     crm.down = true;
     await check();
     crm.down = false;
@@ -250,20 +245,9 @@ describe('browsers', () => {
     expect((await api.put('/api/push/subscription', sub)).status).toBe(204);
     expect((await api.get('/api/notifications/settings')).body.devices).toBe(1);
     expect((await api.post('/api/push/test')).body).toEqual({ sent: 1 });
-    expect(push.sent[0]!.message).toMatchObject({ title: 'vtiger-reader', url: '/tester' });
+    expect(push.sent[0]!.message).toMatchObject({ title: 'vtiger-reader', url: '/' });
     expect((await api.post('/api/push/subscription/delete', { endpoint: sub.endpoint })).status).toBe(204);
     expect((await api.get('/api/notifications/settings')).body.devices).toBe(0);
-  });
-
-  it('one browser, one user: whoever subscribes it last gets its notifications', async () => {
-    const sub = browserSubscription();
-    await api.put('/api/push/subscription', sub);
-    await api.as(OTHER).put('/api/push/subscription', sub);
-    expect((await api.get('/api/notifications/settings')).body.devices).toBe(0);
-    expect((await api.as(OTHER).get('/api/notifications/settings')).body.devices).toBe(1);
-    // The other user's browser is not the tester's to remove.
-    await api.post('/api/push/subscription/delete', { endpoint: sub.endpoint });
-    expect((await api.as(OTHER).get('/api/notifications/settings')).body.devices).toBe(1);
   });
 
   it('a push service is a public https address; the keys are real ones', async () => {

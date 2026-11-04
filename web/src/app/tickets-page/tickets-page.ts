@@ -33,7 +33,6 @@ import { ListsApi } from '../data/lists-api';
 import { CustomerHit, ListQuery, TicketRow, whoLabel } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
 import { HistoryDialogs } from '../history-dialogs';
-import { Session } from '../session/session';
 import { LinkCrmCard } from '../ui/link-crm-card/link-crm-card';
 import { statusColor } from '../ui/status-color';
 import { WhenPipe } from '../ui/when';
@@ -90,7 +89,6 @@ export class TicketsPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  protected readonly session = inject(Session);
 
   protected readonly sorts = SORTS;
   protected readonly whoLabel = whoLabel;
@@ -370,7 +368,7 @@ export class TicketsPage {
   }
 
   protected link(row: TicketRow): string {
-    return this.session.path(`/tickets/${row.id}`);
+    return `/tickets/${row.id}`;
   }
 
   private go(change: Record<string, string | number | null>, replaceUrl = false): void {

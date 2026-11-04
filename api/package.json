@@ -19,7 +19,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
     "@fastify/static": "10.1.10",
-    "better-auth": "1.7.7",
     "fastify": "5.12.8",
     "luxon": "3.7.2",
     "mysql2": "3.24.4",

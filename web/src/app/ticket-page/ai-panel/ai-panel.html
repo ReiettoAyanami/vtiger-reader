@@ -21,7 +21,7 @@
           <ul class="sources" aria-label="Closed tickets found">
             @for (source of exchange.sources; track source.id) {
               <li>
-                <a [routerLink]="session.path('/tickets/' + source.id)">{{ source.number }}</a>
+                <a [routerLink]="'/tickets/' + source.id">{{ source.number }}</a>
                 {{ source.title }}
               </li>
             }
@@ -35,7 +35,7 @@
         @if (exchange.error; as message) {
           <p class="problem" role="alert">{{ message }}</p>
           @if (exchange.needsSetup) {
-            <a mat-stroked-button [routerLink]="session.path('/settings')">Settings</a>
+            <a mat-stroked-button routerLink="/settings">Settings</a>
           }
         }
         @if (!exchange.streaming && !exchange.error && exchange.text) {

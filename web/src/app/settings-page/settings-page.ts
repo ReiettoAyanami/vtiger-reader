@@ -21,7 +21,6 @@ import { ApiError } from '../data/api-error';
 import { LANGUAGES, Settings } from '../data/settings';
 import { SettingsApi } from '../data/settings-api';
 import { Appearance } from '../ui/appearance';
-import { AccountSettings } from './account-settings/account-settings';
 import { AiSettings } from './ai-settings/ai-settings';
 import { CrmLinkSettings } from './crm-link-settings/crm-link-settings';
 import { NotificationSettings } from './notification-settings/notification-settings';
@@ -53,13 +52,12 @@ type Field = 'language' | 'timezone';
 /**
  * The user's preferences, in one form: the language of the interface (English only for now; lenzi,
  * 2026-11-03) and the time zone the CRM's times are shown in. Save sends what changed; the form then
- * shows what the API saved. Below, the user's CRM account, their own account here (password, other
- * devices) and this browser's display choice.
+ * shows what the API saved. Below, the user's CRM account, the AI, the notifications and this
+ * browser's display choice.
  */
 @Component({
   selector: 'app-settings-page',
   imports: [
-    AccountSettings,
     AiSettings,
     CrmLinkSettings,
     MatAutocompleteModule,

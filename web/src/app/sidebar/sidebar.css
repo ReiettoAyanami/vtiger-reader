@@ -1,4 +1,4 @@
-/* The whole height of the drawer: sign out and the settings sit at its bottom. */
+/* The whole height of the drawer: the settings sit at its bottom. */
 :host {
   display: block;
   height: 100%;
@@ -31,17 +31,7 @@ nav {
   color: var(--mat-sys-on-surface);
 }
 
-/* "Sign out" is a button among links: without the browser's button look (a border, the text in
-   the middle), like the other entries. */
-button[mat-list-item] {
-  border: 0;
-  text-align: start;
-}
-
-/* Who is signed in (design-accounts.md: the username is what the app shows). */
-.username {
-  margin: 2px 16px 16px;
-  font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-on-surface-variant);
-  overflow-wrap: anywhere;
+/* Under the name, before the pages. */
+mat-nav-list:first-of-type {
+  margin-top: 16px;
 }

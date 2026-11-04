@@ -21,7 +21,6 @@ export interface PushSubscriptionRow {
 /** A user the checks look for new tickets for: linked to a CRM, not banned, notifications on. */
 export interface WatchedUser {
   owner: Owner;
-  username: string;
 }
 
 const DEFAULT_STATE: NotificationState = { enabled: true, watermark: null, bellSeenAt: null };
@@ -63,17 +62,17 @@ export async function moveWatermark(db: Queryable, owner: Owner, from: string, t
   return result.affectedRows > 0;
 }
 
-/** Every user with a CRM link, not banned, whose notifications are on (or were never turned off). */
+/** Every profile with a CRM link whose notifications are on (or were never turned off). */
 export async function listWatchedUsers(db: Queryable): Promise<WatchedUser[]> {
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT u.id, u.username
+    `SELECT u.id
        FROM users u
        JOIN crm_link c ON c.user_id = u.id
        LEFT JOIN notification_state n ON n.user_id = u.id
-      WHERE (u.banned IS NULL OR u.banned = FALSE) AND (n.enabled IS NULL OR n.enabled = TRUE)
+      WHERE n.enabled IS NULL OR n.enabled = TRUE
       ORDER BY u.id`,
   );
-  return rows.map((r) => ({ owner: ownerOf(Number(r.id)), username: String(r.username) }));
+  return rows.map((r) => ({ owner: ownerOf(Number(r.id)) }));
 }
 
 /** The sha256 of an endpoint: its key in the table (an endpoint is too long for a unique index). */

@@ -1,20 +1,11 @@
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyServerOptions } from 'fastify';
-import { loadConfig, type AuthConfig, type CrmConfig } from './config.js';
+import { loadConfig, type CrmConfig } from './config.js';
 import { createPool, pingDatabase, type Pool } from './db/pool.js';
-import { AccountLifecycle } from './modules/accounts/service.js';
 import { CrmClient } from './modules/crm/client.js';
 import { crmLinkRoutes } from './modules/crm/routes.js';
 import { CrmLinkService, crmProblem } from './modules/crm/service.js';
 import { CrmError, type Fetch } from './modules/crm/webservice.js';
-import { adminRoutes } from './modules/admin/routes.js';
-import { AdminService } from './modules/admin/service.js';
-import { createAuth } from './modules/identity/auth.js';
-import { requestUserHook } from './modules/identity/hook.js';
-import { Identity } from './modules/identity/identity.js';
-import { authDatabase } from './modules/identity/insert-memory.js';
-import { accountRoutes, identityRoutes } from './modules/identity/routes.js';
-import { SIGN_IN_DELAY, SignInThrottle, type SignInDelay } from './modules/identity/throttle.js';
 import { settingsRoutes } from './modules/settings/routes.js';
 import { AiError } from './modules/ai/adapter.js';
 import { aiRoutes } from './modules/ai/routes.js';
@@ -24,6 +15,7 @@ import { PushSender, type PushSend } from './modules/notifications/push.js';
 import { notificationRoutes } from './modules/notifications/routes.js';
 import { NotificationsService } from './modules/notifications/service.js';
 import { ListsService } from './modules/lists/service.js';
+import { localProfileHook } from './modules/profile/profile.js';
 import { ticketRoutes } from './modules/tickets/routes.js';
 import { TicketsService } from './modules/tickets/service.js';
 import { SettingsService } from './modules/settings/service.js';
@@ -48,11 +40,8 @@ export interface BuildAppOptions {
   webDist?: string | undefined;
   /** Source of "now" (tests pin it). */
   clock?: Clock;
-  /**
-   * Sign-in settings over the environment's (tests: another address, the counters off, shorter
-   * waits, and the sleep of those waits, to see which ones are asked for).
-   */
-  auth?: Partial<AuthConfig> & { rateLimit?: boolean; signInDelay?: SignInDelay; signInSleep?: (ms: number) => Promise<void> };
+  /** The address the app is opened at, over the environment's APP_URL: the security headers (HSTS on https). */
+  appUrl?: string;
   /** The AI providers' HTTP client and host check (tests: fake providers). */
   ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[]; claudeCode?: string[] };
   /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
@@ -63,10 +52,6 @@ export interface BuildAppOptions {
 
 declare module 'fastify' {
   interface FastifyInstance {
-    /** Who is asking, and the users' credentials (modules/identity). */
-    identity: Identity;
-    /** Creating users ready to use (modules/accounts). */
-    accounts: AccountLifecycle;
     /** New tickets for each user (modules/notifications): server.ts starts its checks. */
     notifications: NotificationsService;
     /** Every route of the API, as registered (the cross-user tests cover each one). */
@@ -111,10 +96,10 @@ function aiProblem(error: AiError): ProblemBody {
 
 /**
  * Who the push services may write to about this instance (VAPID's subject, RFC 8292): its address
- * when it is https, else the first administrator's mail.
+ * when it is https, else a mail address nobody reads.
  */
-function pushSubject(appUrl: string, adminEmail: string): string {
-  return appUrl.startsWith('https://') ? new URL(appUrl).origin : `mailto:${adminEmail}`;
+function pushSubject(appUrl: string): string {
+  return appUrl.startsWith('https://') ? new URL(appUrl).origin : 'mailto:vtiger-reader@localhost.invalid';
 }
 
 function isApiPath(url: string): boolean {
@@ -144,9 +129,9 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     });
   }
 
-  const authConfig: AuthConfig = { ...loadConfig().auth, ...opts.auth };
+  const appUrl = opts.appUrl ?? loadConfig().appUrl;
   // What every answer tells the browser: before the routes, the 404 handler and the web build.
-  securityHeadersHook(app, authConfig.appUrl);
+  securityHeadersHook(app, appUrl);
 
   // Every error leaves as Problem Details.
   app.setErrorHandler((error: FastifyError, request, reply) => {
@@ -174,18 +159,8 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     return sendProblem(reply, problemBody(404, 'not-found', `No route for ${request.method} ${path}`));
   });
 
-  const auth = createAuth(authDatabase(pool), {
-    appUrl: authConfig.appUrl,
-    secret: authConfig.secret,
-    cookiePrefix: authConfig.cookiePrefix,
-    rateLimit: opts.auth?.rateLimit ?? true,
-    log: (level, message) => app.log[level](message),
-  });
-  const identity = new Identity(auth, pool);
-  app.decorate('identity', identity);
-
-  // Every /api request needs a session, except sign-in, health and version: before any route.
-  requestUserHook(app, identity);
+  // Every request works for the app's one profile (plan 7.1): no accounts, no sign-in.
+  localProfileHook(app);
   const apiRoutes: Array<{ method: string; url: string }> = [];
   app.decorate('apiRoutes', apiRoutes);
   app.addHook('onRoute', (route) => {
@@ -204,8 +179,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   const links: CrmLinkService = new CrmLinkService(pool, new SecretBox(crmConfig.encryptionKey), crmClient);
 
   const settings = new SettingsService(pool);
-  const accounts = new AccountLifecycle(pool, identity, settings);
-  app.decorate('accounts', accounts);
 
   app.get('/api/health', async (request, reply) => {
     try {
@@ -223,13 +196,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // The product's version, for the corner of every page (version.ts).
   app.get('/api/version', async () => ({ version: VERSION, apiLevel: API_LEVEL }));
 
-  identityRoutes(app, {
-    identity,
-    throttle: new SignInThrottle(pool, opts.auth?.signInDelay ?? SIGN_IN_DELAY, Date.now, opts.auth?.signInSleep),
-    appUrl: authConfig.appUrl,
-    clientIpHeader: authConfig.clientIpHeader,
-  });
-  accountRoutes(app, { identity });
   settingsRoutes(app, { settings });
   crmLinkRoutes(app, { links });
   const lists = new ListsService(pool);
@@ -244,7 +210,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   });
   aiRoutes(app, { ai, tickets, settings });
   const push = new PushSender(pool, new SecretBox(crmConfig.encryptionKey), {
-    subject: pushSubject(authConfig.appUrl, loadConfig().firstAdmin.email),
+    subject: pushSubject(appUrl),
     ...(opts.push?.send ? { send: opts.push.send } : {}),
     log: (message) => app.log.warn(message),
   });
@@ -256,7 +222,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   app.decorate('notifications', notifications);
   app.addHook('onClose', async () => notifications.stop());
   notificationRoutes(app, { notifications });
-  adminRoutes(app, { admin: new AdminService(identity, accounts) });
 
   if (opts.webDist) {
     await app.register(fastifyStatic, { root: opts.webDist, index: ['index.html'], wildcard: true });

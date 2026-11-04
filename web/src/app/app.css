@@ -69,24 +69,6 @@ mat-toolbar {
   backdrop-filter: var(--app-glass-filter);
 }
 
-/* While an administrator acts as a user, the "Viewing as" bar sticks above the top bar, which
-   sticks just under it: both stay in sight however far the page scrolls. */
-mat-sidenav-content {
-  --app-viewing-as-height: 44px;
-}
-
-app-viewing-as-bar {
-  position: sticky;
-  top: calc(8px + env(safe-area-inset-top, 0px));
-  z-index: 6;
-  margin: calc(8px + env(safe-area-inset-top, 0px)) 8px 0;
-}
-
-mat-sidenav-content.impersonating mat-toolbar {
-  top: calc(8px + env(safe-area-inset-top, 0px) + var(--app-viewing-as-height) + 8px);
-  margin-top: 8px;
-}
-
 /* The Android app offline (design-android.md, "last data"): under the top bar, above the page. */
 app-offline-bar {
   margin: 8px;

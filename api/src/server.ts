@@ -3,7 +3,7 @@ import { buildApp } from './app.js';
 import { loadConfig, type AppConfig } from './config.js';
 import { ensureDatabase, runMigrations } from './db/migrate.js';
 import { createPool } from './db/pool.js';
-import { ensureFirstAdmin } from './modules/accounts/first-admin.js';
+import { ensureLocalProfile } from './modules/profile/profile.js';
 
 /** Connection errors worth waiting for while MySQL is still starting. */
 const RETRYABLE = new Set([
@@ -44,11 +44,8 @@ async function main(): Promise<void> {
 
   try {
     await migrateWithRetry(config, app.log);
-    // The first administrator, while there is none (design-accounts.md, "first account"). An
-    // instance nobody can sign in to is of no use: when it cannot be created, the start stops here,
-    // the reason in the log, and the container's restart tries again after .env is fixed.
-    const firstAdmin = await ensureFirstAdmin({ pool, accounts: app.accounts, log: app.log }, config.firstAdmin);
-    if (firstAdmin === 'failed') throw new Error('the first administrator could not be created (see the error above)');
+    // The app's one profile, at the first start (plan 7.1).
+    if (await ensureLocalProfile(pool)) app.log.info('created the local profile');
     await app.listen({ host: config.host, port: config.port });
     if (config.webDist) app.log.info(`serving the web build from ${config.webDist}`);
     // New tickets, every 2 minutes, for every user with a CRM link (plan 5.1).

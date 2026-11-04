@@ -18,22 +18,15 @@
       @if (link.problem; as problem) {
         <p class="form-error problem" role="alert">{{ problem }}</p>
       }
-      @if (!session.user()?.impersonatedBy) {
-        <div class="actions">
-          <button mat-stroked-button type="button" class="unlink" (click)="unlink()">Unlink</button>
-          <button mat-stroked-button type="button" class="change" (click)="startChange()">
-            Change account
-          </button>
-        </div>
-      }
-    } @else if (session.user()?.impersonatedBy) {
-      <p class="note">
-        You are viewing the app as {{ session.user()?.username }}: their CRM account is theirs to
-        link.
-      </p>
+      <div class="actions">
+        <button mat-stroked-button type="button" class="unlink" (click)="unlink()">Unlink</button>
+        <button mat-stroked-button type="button" class="change" (click)="startChange()">
+          Change account
+        </button>
+      </div>
     } @else {
       <p class="note">
-        Your own account in the CRM, separate from this app's sign-in. The access key is in the CRM:
+        Your own account in the CRM. The access key is in the CRM:
         your profile (top right) → My Preferences → Access Key.
       </p>
       <form [formGroup]="form" (ngSubmit)="save()" novalidate>

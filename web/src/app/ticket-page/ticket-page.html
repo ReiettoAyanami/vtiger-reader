@@ -14,7 +14,7 @@
     <p class="message error" role="alert">{{ message }}</p>
     @if (message.startsWith('Link')) {
       <div class="center">
-        <a mat-flat-button [routerLink]="session.path('/settings')">Settings</a>
+        <a mat-flat-button routerLink="/settings">Settings</a>
       </div>
     } @else {
       <div class="center">

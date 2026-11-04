@@ -4,16 +4,13 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter } from '@angular/router';
-import { firstValueFrom, of } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
-import { AuthApi, type SessionUser } from '../../data/auth-api';
 import { CrmLinkStatus } from '../../data/crm-link';
 import { errorInterceptor } from '../../data/error-interceptor';
 import { HistoryDialogs } from '../../history-dialogs';
-import { Session } from '../../session/session';
 import { CrmLinkSettings } from './crm-link-settings';
 
-const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null };
 const CRM = 'https://crm.example.invalid';
 const UNLINKED: CrmLinkStatus = {
   crmUrl: null,
@@ -38,7 +35,7 @@ describe('CrmLinkSettings', () => {
   let confirmed: boolean;
   let dialogs: Array<{ title: string; action: () => unknown }>;
 
-  async function render(status: CrmLinkStatus, user: SessionUser = lenzi) {
+  async function render(status: CrmLinkStatus) {
     snacks = [];
     dialogs = [];
     confirmed = true;
@@ -48,7 +45,6 @@ describe('CrmLinkSettings', () => {
         provideRouter([]),
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
-        { provide: AuthApi, useValue: { getSession: () => of(user) } },
         { provide: MatSnackBar, useValue: { open: (message: string) => snacks.push(message) } },
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         {
@@ -66,7 +62,6 @@ describe('CrmLinkSettings', () => {
       ],
     });
     backend = TestBed.inject(HttpTestingController);
-    await TestBed.inject(Session).load();
     const fixture = TestBed.createComponent(CrmLinkSettings);
     fixture.detectChanges();
     backend.expectOne({ method: 'GET', url: '/api/crm/link' }).flush(status);
@@ -249,16 +244,5 @@ describe('CrmLinkSettings', () => {
     await page.click('.unlink');
     expect(dialogs).toHaveLength(1);
     expect(snacks).toEqual([]);
-  });
-
-  it("while an administrator views the app as the user: shown, not changed; it is the user's own", async () => {
-    const friend: SessionUser = { id: 7, username: 'friend', role: 'user', impersonatedBy: 1 };
-    const linked = await render(LINKED, friend);
-    expect(linked.element.querySelector('.unlink')).toBeNull();
-    expect(linked.element.querySelector('.change')).toBeNull();
-    TestBed.resetTestingModule();
-    const unlinked = await render(UNLINKED, friend);
-    expect(unlinked.element.querySelector('form')).toBeNull();
-    expect(unlinked.text('.note')).toContain('their CRM account is theirs to link');
   });
 });

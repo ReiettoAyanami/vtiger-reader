@@ -109,5 +109,5 @@ export function notificationRoutes(app: FastifyInstance, deps: { notifications: 
     return reply.code(204).send();
   });
 
-  app.post('/api/push/test', async (req) => ({ sent: await notifications.test(req.owner, req.user!.username) }));
+  app.post('/api/push/test', async (req) => ({ sent: await notifications.test(req.owner) }));
 }

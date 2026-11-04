@@ -9,28 +9,6 @@ export interface DbConfig {
   password: string;
 }
 
-/** How users sign in (design-accounts.md, "Identity"). */
-export interface AuthConfig {
-  /** The instance's address, as the browser sees it (APP_URL): the only trusted origin. */
-  appUrl: string;
-  /** Signs the session cookies (AUTH_SECRET). */
-  secret: string;
-  /** Prefix of the cookie names (COOKIE_PREFIX): dev and prod on one machine must differ. */
-  cookiePrefix: string;
-  /** Header the instance's proxy sets to the client's IP (CLIENT_IP_HEADER); unset, the connection's. */
-  clientIpHeader: string | undefined;
-}
-
-/** The instance's first administrator, created at startup when there is none (design-accounts.md, "first account"). */
-export interface FirstAdminConfig {
-  /** ADMIN_USERNAME: permanent, it lives in every URL; unset, no administrator is created. */
-  username: string | undefined;
-  /** ADMIN_EMAIL (a fake address for now: lenzi, 2026-10-03). */
-  email: string;
-  /** FIRST_ADMIN_PASSWORD_FILE: where its password is written (the project root, mounted). */
-  passwordFile: string;
-}
-
 /** The CRM link. Each user sets their CRM's address from the interface (lenzi, 2026-11-03). */
 export interface CrmConfig {
   /** ENCRYPTION_KEY: seals the users' CRM access keys (and later their AI keys) in the database. */
@@ -53,8 +31,8 @@ export interface AppConfig {
   db: DbConfig;
   crm: CrmConfig;
   ai: AiConfig;
-  auth: AuthConfig;
-  firstAdmin: FirstAdminConfig;
+  /** APP_URL: the address the app is opened at; only its origin is kept. */
+  appUrl: string;
   /** Name of the test database (dev only), `${DB_NAME}_test` when TEST_DB_NAME is unset. */
   testDbName: string;
   host: string;
@@ -90,33 +68,17 @@ function optionalPath(env: Env, name: string): string | undefined {
   return isAbsolute(value) ? value : resolve(process.cwd(), value);
 }
 
-/** Development only: a production instance refuses to start without its own AUTH_SECRET. */
-export const DEV_AUTH_SECRET = 'vtiger-reader-development-secret-never-for-production';
-
-function authConfig(env: Env): AuthConfig {
-  const production = env.NODE_ENV === 'production';
-  const rawUrl = env.APP_URL?.trim();
-  const secret = env.AUTH_SECRET?.trim();
-  if (production && !rawUrl) {
-    throw new Error('APP_URL must be set in production: the address the instance is opened at, e.g. https://tickets.example.com');
-  }
-  if (production && (!secret || secret.length < 32)) {
-    throw new Error('AUTH_SECRET must be set in production, at least 32 characters (e.g. openssl rand -base64 32)');
-  }
-  const appUrl = rawUrl || 'http://localhost:4200';
+/** APP_URL's origin; the dev server's address when unset. */
+function appUrlOf(env: Env): string {
+  const appUrl = env.APP_URL?.trim() || 'http://localhost:4200';
   let origin: string;
   try {
     origin = new URL(appUrl).origin;
   } catch {
-    throw new Error(`APP_URL must be a full address such as https://tickets.example.com, got "${appUrl}"`);
+    throw new Error(`APP_URL must be a full address such as http://127.0.0.1:3000, got "${appUrl}"`);
   }
   if (origin === 'null') throw new Error(`APP_URL must be an http or https address, got "${appUrl}"`);
-  return {
-    appUrl: origin,
-    secret: secret || DEV_AUTH_SECRET,
-    cookiePrefix: str(env, 'COOKIE_PREFIX', 'vtiger-reader'),
-    clientIpHeader: env.CLIENT_IP_HEADER?.trim().toLowerCase() || undefined,
-  };
+  return origin;
 }
 
 function crmConfig(env: Env): CrmConfig {
@@ -131,7 +93,7 @@ function crmConfig(env: Env): CrmConfig {
 export function loadConfig(env: Env = process.env): AppConfig {
   const database = str(env, 'DB_NAME', 'vtiger_reader');
   return {
-    auth: authConfig(env),
+    appUrl: appUrlOf(env),
     crm: crmConfig(env),
     ai: {
       privateHosts: (env.AI_PRIVATE_HOSTS ?? '')
@@ -139,11 +101,6 @@ export function loadConfig(env: Env = process.env): AppConfig {
         .map((h) => h.trim().toLowerCase())
         .filter(Boolean),
       claudeCode: (env.CLAUDE_CODE_BIN?.trim() || 'claude').split(/\s+/),
-    },
-    firstAdmin: {
-      username: env.ADMIN_USERNAME?.trim().toLowerCase() || undefined,
-      email: str(env, 'ADMIN_EMAIL', 'admin@example.invalid'),
-      passwordFile: str(env, 'FIRST_ADMIN_PASSWORD_FILE', '/project/to_delete.password.txt'),
     },
     db: {
       host: str(env, 'DB_HOST', 'localhost'),

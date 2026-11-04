@@ -11,7 +11,6 @@ import { map } from 'rxjs';
 import { ApiError } from '../data/api-error';
 import { Attachment, Comment, whoLabel } from '../data/tickets';
 import { TicketsApi } from '../data/tickets-api';
-import { Session } from '../session/session';
 import { statusColor } from '../ui/status-color';
 import { WhenPipe } from '../ui/when';
 import { AiPanel } from './ai-panel/ai-panel';
@@ -58,7 +57,6 @@ function apiErrorOf(error: unknown): Partial<ApiError> | null {
 export class TicketPage {
   private readonly api = inject(TicketsApi);
   private readonly route = inject(ActivatedRoute);
-  protected readonly session = inject(Session);
 
   protected readonly actions = WRITE_ACTIONS;
   protected readonly whoLabel = whoLabel;
@@ -123,6 +121,6 @@ export class TicketPage {
   }
 
   protected backLink(): string {
-    return this.session.path();
+    return '/';
   }
 }

@@ -8,7 +8,6 @@ import { Bell as BellData } from '../../data/notifications';
 import { NotificationsApi } from '../../data/notifications-api';
 import { TicketRow } from '../../data/tickets';
 import { LiveNotifications } from '../../notifications/live-notifications';
-import { Session } from '../../session/session';
 import { UserTimeZone } from '../when';
 import { Bell } from './bell';
 
@@ -42,13 +41,6 @@ describe('Bell', () => {
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: LiveNotifications, useValue: { arrivals } },
         { provide: UserTimeZone, useValue: { zone: () => 'UTC', load: async () => 'UTC' } },
-        {
-          provide: Session,
-          useValue: {
-            user: () => ({ username: 'lenzi' }),
-            path: (page = '') => `/lenzi${page}`,
-          },
-        },
         {
           provide: NotificationsApi,
           useValue: {
@@ -90,7 +82,7 @@ describe('Bell', () => {
       'Printer on fire',
       'Mail down',
     ]);
-    expect(rows[0].getAttribute('href')).toBe('/lenzi/tickets/17x2');
+    expect(rows[0].getAttribute('href')).toBe('/tickets/17x2');
     expect(page.seen).toEqual(['2026-11-04T10:05:00Z']);
     // Read again after "seen": nothing new.
     page.fixture.detectChanges();

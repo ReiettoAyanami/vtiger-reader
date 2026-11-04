@@ -5,7 +5,6 @@ import type { Clock } from '../../src/shared/time.js';
 import type { FakeCrm } from './fake-crm.js';
 import { FakePush } from './fake-push.js';
 import { testPool } from './db.js';
-import { TESTER, cookieOf, type TestUser } from './session.js';
 
 /** Fixed "now" for the tests: 2026-09-29 12:00 in Rome. */
 export const NOW = new Date('2026-09-29T10:00:00Z');
@@ -19,27 +18,14 @@ export interface Res<T = any> {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
-/**
- * Thin HTTP client over app.inject(), plus helpers to build a ledger quickly. It works as a signed-in
- * user (the tester unless told otherwise, see session.ts), or signed out with `as(null)`.
- */
+/** Thin HTTP client over app.inject(), for the app's one profile (plan 7.1). */
 export class Api {
-  constructor(
-    readonly app: FastifyInstance,
-    readonly user: TestUser | null = TESTER,
-  ) {}
-
-  /** The same app as another user, or signed out (null). */
-  as(user: TestUser | null): Api {
-    return new Api(this.app, user);
-  }
+  constructor(readonly app: FastifyInstance) {}
 
   async req<T = any>(method: Method, url: string, payload?: unknown): Promise<Res<T>> {
-    const cookie = this.user ? await cookieOf(this.app, this.user) : null;
     const res = await this.app.inject({
       method,
       url,
-      ...(cookie ? { headers: { cookie } } : {}),
       ...(payload === undefined ? {} : { payload: payload as object }),
     });
     const type = String(res.headers['content-type'] ?? '');
@@ -69,8 +55,7 @@ export class Api {
    * reads the next event.
    */
   async stream(url: string, until: string): Promise<Res<string> & { more: () => Promise<string> }> {
-    const cookie = this.user ? await cookieOf(this.app, this.user) : null;
-    const res = await this.app.inject({ method: 'GET', url, ...(cookie ? { headers: { cookie } } : {}), payloadAsStream: true });
+    const res = await this.app.inject({ method: 'GET', url, payloadAsStream: true });
     const stream = res.stream();
     let text = '';
     stream.on('data', (chunk: Buffer) => (text += chunk.toString('utf8')));
@@ -125,15 +110,14 @@ export async function makeApi(
     push?: FakePush;
   } = {},
 ): Promise<Api> {
-  // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one
-  // (its made-up host allowed), or no network at all: a test never calls a real address.
+  // The CRM is a fake one (its made-up host allowed), or no network at all: a test never calls a
+  // real address.
   const fetch: typeof globalThis.fetch = opts.crm?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests')));
   const crm = { fetch, hostAllowed: opts.hostAllowed ?? (async () => true) };
   const app = await buildApp({
     pool: testPool(),
     clock: opts.clock ?? fixedClock,
     webDist: opts.webDist,
-    auth: { rateLimit: false },
     crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
     push: { send: (opts.push ?? new FakePush()).send, hostAllowed: opts.hostAllowed ?? (async () => true) },
     ai: {

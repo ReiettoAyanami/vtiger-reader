@@ -68,10 +68,9 @@ describe('source rules', () => {
     return out;
   }
 
-  it('there is no SQL DELETE (or TRUNCATE) anywhere in src/, except where users are deleted', async () => {
+  it('there is no SQL DELETE (or TRUNCATE) anywhere in src/, except for keys and preferences', async () => {
     for (const file of await sources(srcDir)) {
-      // Deleting a user is a real deletion of everything that is theirs (lenzi, 2026-10-01), kept in
-      // the accounts module. Unlinking a CRM account deletes its row: the sealed access key is not
+      // Unlinking a CRM account deletes its row: the sealed access key is not
       // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
       // preference, not a record (tickets/repository.ts); so is deleting one of one's lists
       // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts). A browser's
@@ -80,7 +79,6 @@ describe('source rules', () => {
       // keys and addresses of a device, nothing to keep.
       const normalized = file.replace(/\\/g, '/');
       if (
-        normalized.includes('/src/modules/accounts/') ||
         normalized.endsWith('/src/modules/crm/repository.ts') ||
         normalized.endsWith('/src/modules/tickets/repository.ts') ||
         normalized.endsWith('/src/modules/lists/repository.ts') ||
@@ -95,15 +93,14 @@ describe('source rules', () => {
     }
   });
 
-  it('an Owner is made only by the request hook and the account lifecycle', async () => {
-    // The owner of a request is always its session's user (design-accounts.md, "owner"): nothing
-    // else may make one, or a domain call could work for whoever a URL or a body names.
+  it('an Owner is made only by the local profile', async () => {
+    // The owner of a request is always the app's one profile (plan 7.1): nothing else may make one,
+    // or a domain call could work for whoever a URL or a body names.
     // The one exception: the checks for new tickets (plan 5.1) run with no request, for each user
     // with a CRM link, as the database lists them (notifications/repository.ts, listWatchedUsers).
     const allowed = [
       '/src/shared/owner.ts',
-      '/src/modules/identity/hook.ts',
-      '/src/modules/accounts/service.ts',
+      '/src/modules/profile/profile.ts',
       '/src/modules/notifications/repository.ts',
     ];
     for (const file of await sources(srcDir)) {

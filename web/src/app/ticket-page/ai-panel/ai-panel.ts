@@ -12,7 +12,6 @@ import { RouterLink } from '@angular/router';
 import { SimilarSource, TASKS, Task, ThreadTurn } from '../../data/ai';
 import { AiApi } from '../../data/ai-api';
 import { ApiError } from '../../data/api-error';
-import { Session } from '../../session/session';
 
 /** One request of the panel and its answer, as shown. */
 export interface Exchange {
@@ -56,7 +55,6 @@ export function askedLabel(exchange: Pick<Exchange, 'task' | 'question'>): strin
 export class AiPanel implements OnDestroy {
   private readonly api = inject(AiApi);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly session = inject(Session);
 
   readonly ticketId = input.required<string>();
   /** The ticket has photos (images that are not signature logos): "Look at the photos" is offered. */
