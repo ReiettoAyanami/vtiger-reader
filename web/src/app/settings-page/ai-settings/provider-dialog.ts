@@ -78,7 +78,7 @@ import { ApiError } from '../../data/api-error';
           @if (data?.hasKey) {
             <mat-hint>Saved ({{ data?.keyHint }}): leave empty to keep it</mat-hint>
           } @else {
-            <mat-hint>Kept encrypted on the server, never shown again</mat-hint>
+            <mat-hint>Kept encrypted on this PC, never shown again</mat-hint>
           }
         </mat-form-field>
         @if (error(); as message) {

@@ -31,11 +31,9 @@ const required = (control: AbstractControl) =>
   String(control.value ?? '').trim() ? null : { required: true };
 
 /**
- * The user's own CRM account (plan 2.2): not the app's sign-in, a second account the app works
- * with. The CRM's address is set here too, not in the server's .env (lenzi, 2026-11-03). The server
- * logs in with the three before saving them; the key is kept sealed on the server and never shown
- * again. While an administrator views the app as the user, the
- * link is only shown: it is the user's own.
+ * The user's own CRM account (plan 2.2), the one the app works with. The CRM's address is set here
+ * too (lenzi, 2026-11-03). The app logs in with the three before saving them; the key is kept sealed
+ * on this PC and never shown again.
  */
 @Component({
   selector: 'app-crm-link-settings',
