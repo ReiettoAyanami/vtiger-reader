@@ -51,6 +51,8 @@ async function main(): Promise<void> {
     if (firstAdmin === 'failed') throw new Error('the first administrator could not be created (see the error above)');
     await app.listen({ host: config.host, port: config.port });
     if (config.webDist) app.log.info(`serving the web build from ${config.webDist}`);
+    // New tickets, every 2 minutes, for every user with a CRM link (plan 5.1).
+    app.notifications.start();
   } catch (err) {
     app.log.fatal({ err }, 'startup failed');
     await app.close().catch(() => undefined);

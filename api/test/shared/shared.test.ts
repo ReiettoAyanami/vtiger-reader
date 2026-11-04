@@ -74,14 +74,18 @@ describe('source rules', () => {
       // the accounts module. Unlinking a CRM account deletes its row: the sealed access key is not
       // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
       // preference, not a record (tickets/repository.ts); so is deleting one of one's lists
-      // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts).
+      // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts). A browser's
+      // push subscription goes when it is turned off or the push service says it is dead, and the
+      // VAPID keys with every subscription when they no longer open (notifications/repository.ts):
+      // keys and addresses of a device, nothing to keep.
       const normalized = file.replace(/\\/g, '/');
       if (
         normalized.includes('/src/modules/accounts/') ||
         normalized.endsWith('/src/modules/crm/repository.ts') ||
         normalized.endsWith('/src/modules/tickets/repository.ts') ||
         normalized.endsWith('/src/modules/lists/repository.ts') ||
-        normalized.endsWith('/src/modules/ai/repository.ts')
+        normalized.endsWith('/src/modules/ai/repository.ts') ||
+        normalized.endsWith('/src/modules/notifications/repository.ts')
       ) {
         continue;
       }
@@ -94,7 +98,14 @@ describe('source rules', () => {
   it('an Owner is made only by the request hook and the account lifecycle', async () => {
     // The owner of a request is always its session's user (design-accounts.md, "owner"): nothing
     // else may make one, or a domain call could work for whoever a URL or a body names.
-    const allowed = ['/src/shared/owner.ts', '/src/modules/identity/hook.ts', '/src/modules/accounts/service.ts'];
+    // The one exception: the checks for new tickets (plan 5.1) run with no request, for each user
+    // with a CRM link, as the database lists them (notifications/repository.ts, listWatchedUsers).
+    const allowed = [
+      '/src/shared/owner.ts',
+      '/src/modules/identity/hook.ts',
+      '/src/modules/accounts/service.ts',
+      '/src/modules/notifications/repository.ts',
+    ];
     for (const file of await sources(srcDir)) {
       const normalized = file.replace(/\\/g, '/');
       if (allowed.some((end) => normalized.endsWith(end))) continue;

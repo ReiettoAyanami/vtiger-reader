@@ -23,12 +23,15 @@ export interface TicketList {
   filter: ListFilter;
 }
 
-/** The lists every user starts with: those of the CRM's own "Miei ticket"... (lenzi's, 2026-11-03). */
-export const DEFAULT_LISTS: ReadonlyArray<{ name: string; filter: ListFilter }> = [
+/**
+ * The lists every user starts with: those of the CRM's own "Miei ticket"... (lenzi's, 2026-11-03).
+ * A new ticket in the ones that notify is "for me" (plan 5.1): mine, or unassigned, and open.
+ */
+export const DEFAULT_LISTS: ReadonlyArray<{ name: string; filter: ListFilter; notify?: true }> = [
   { name: 'My tickets', filter: { owner: 'me', status: 'any' } },
-  { name: 'My open tickets', filter: { owner: 'me', status: 'open' } },
+  { name: 'My open tickets', filter: { owner: 'me', status: 'open' }, notify: true },
   { name: 'My closed tickets', filter: { owner: 'me', status: 'closed' } },
-  { name: 'Unassigned', filter: { owner: 'groups', status: 'open' } },
+  { name: 'Unassigned', filter: { owner: 'groups', status: 'open' }, notify: true },
   { name: 'All open tickets', filter: { owner: 'anyone', status: 'open' } },
   { name: 'All tickets', filter: { owner: 'anyone', status: 'any' } },
 ];

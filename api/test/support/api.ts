@@ -3,6 +3,7 @@ import { expect } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import type { Clock } from '../../src/shared/time.js';
 import type { FakeCrm } from './fake-crm.js';
+import { FakePush } from './fake-push.js';
 import { testPool } from './db.js';
 import { TESTER, cookieOf, type TestUser } from './session.js';
 
@@ -62,6 +63,47 @@ export class Api {
     return this.req<T>('DELETE', url);
   }
 
+  /**
+   * Opens a server-sent events stream and reads up to the end of the event that has `until` (or
+   * for 2 s): the status, and the text read. The stream stays open until the app closes; `more`
+   * reads the next event.
+   */
+  async stream(url: string, until: string): Promise<Res<string> & { more: () => Promise<string> }> {
+    const cookie = this.user ? await cookieOf(this.app, this.user) : null;
+    const res = await this.app.inject({ method: 'GET', url, ...(cookie ? { headers: { cookie } } : {}), payloadAsStream: true });
+    const stream = res.stream();
+    let text = '';
+    stream.on('data', (chunk: Buffer) => (text += chunk.toString('utf8')));
+    /** The text from `from` to the end of the first event after `needle`, once it has come. */
+    const upToEvent = async (from: number, needle = '') => {
+      const end = () => {
+        const at = text.indexOf(needle, from);
+        const close = at < 0 ? -1 : text.indexOf('\n\n', at + needle.length);
+        return close < 0 ? -1 : close + 2;
+      };
+      for (let waited = 0; waited < 2000 && end() < 0; waited += 10) await new Promise((resolve) => setTimeout(resolve, 10));
+      return end() < 0 ? text.length : end();
+    };
+    const type = String(res.headers['content-type'] ?? '');
+    let read = type.includes('event-stream') ? await upToEvent(0, until) : 0;
+    if (!type.includes('event-stream')) {
+      for (let waited = 0; waited < 2000 && !stream.readableEnded; waited += 10) await new Promise((resolve) => setTimeout(resolve, 10));
+      read = text.length;
+    }
+    const body = text.slice(0, read);
+    return {
+      status: res.statusCode,
+      body: (type.includes('json') ? JSON.parse(body) : body) as string,
+      headers: res.headers,
+      more: async () => {
+        const end = await upToEvent(read);
+        const next = text.slice(read, end);
+        read = end;
+        return next;
+      },
+    };
+  }
+
   /** POST that must succeed with 201; returns the body. */
   async created(url: string, payload: unknown): Promise<any> {
     const res = await this.post(url, payload);
@@ -79,6 +121,8 @@ export async function makeApi(
     hostAllowed?: (host: string) => Promise<boolean>;
     /** Fake AI providers (support/fake-ai.ts), and the hosts AI_PRIVATE_HOSTS would list. */
     ai?: { fetch: typeof fetch; privateHosts?: string[] };
+    /** A fake push service (support/fake-push.ts); a new one, unread, when omitted. */
+    push?: FakePush;
   } = {},
 ): Promise<Api> {
   // The sign-in counters are tested on their own (identity/routes.test.ts). The CRM is a fake one
@@ -91,6 +135,7 @@ export async function makeApi(
     webDist: opts.webDist,
     auth: { rateLimit: false },
     crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
+    push: { send: (opts.push ?? new FakePush()).send, hostAllowed: opts.hostAllowed ?? (async () => true) },
     ai: {
       fetch: opts.ai?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests'))),
       hostAllowed: opts.hostAllowed ?? (async () => true),

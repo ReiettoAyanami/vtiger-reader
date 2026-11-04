@@ -187,6 +187,17 @@ export function crmInstant(value: unknown): string | null {
   return `${match[1]}T${match[2]}${match[3] ? '' : ':00'}Z`;
 }
 
+/** An instant as the CRM writes its times: 'YYYY-MM-DD HH:MM:SS', UTC (plan 2.1). */
+export function crmTime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+/** A CRM time, or null when the value is not one ('YYYY-MM-DD HH:MM:SS'). */
+export function crmTimeOf(value: unknown): string | null {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text) ? text : null;
+}
+
 function str(value: unknown): string {
   return typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
 }
@@ -357,6 +368,55 @@ export class TicketsService {
     ]);
     const names = await this.contactNames(owner, rows.map((r) => refId(r.contact_id)));
     return { items: rows.map((r) => this.row(r, schema, me, groups, names)), page, size, total };
+  }
+
+  /** The createdtime of the newest ticket the user's CRM shows them, or null when it shows none. */
+  async newestCreated(owner: Owner): Promise<string | null> {
+    const rows = await this.crm.select(owner, {
+      module: 'HelpDesk',
+      fields: ['createdtime'],
+      orderBy: { field: 'createdtime', direction: 'DESC' },
+      limit: 1,
+    });
+    return crmTimeOf(rows[0]?.createdtime);
+  }
+
+  /**
+   * The tickets created after `after` (and not after `upTo`, when given) that are in any of these
+   * lists (plan 5: what notifies, what the bell shows), newest first, at most `limit`. One CRM query
+   * per list: the CRM's VTQL has no OR across them (no parentheses). A list that names a value the
+   * CRM no longer has is skipped: the user sees it as outdated on the tickets page.
+   */
+  async createdAfter(owner: Owner, filters: readonly ListFilter[], after: string, options: { upTo?: string; limit?: number } = {}): Promise<TicketRow[]> {
+    if (filters.length === 0) return [];
+    const limit = Math.min(Math.max(options.limit ?? MAX_ROWS, 1), MAX_ROWS);
+    const [schema, groups, me] = await Promise.all([this.schema(owner), this.groups(owner), this.crm.crmUserId(owner)]);
+    const found = new Map<string, Record<string, unknown>>();
+    for (const filter of filters) {
+      let conditions: string[];
+      try {
+        conditions = this.listConditions(filter, schema, me, groups);
+      } catch {
+        continue;
+      }
+      const rows = await this.crm.select(owner, {
+        module: 'HelpDesk',
+        fields: ROW_FIELDS,
+        where: [...conditions, `createdtime > ${literal(after)}`].join(' AND '),
+        orderBy: { field: 'createdtime', direction: 'DESC' },
+        limit,
+      });
+      for (const r of rows) {
+        const created = crmTimeOf(r.createdtime);
+        // The CRM's own comparison decides "after"; "up to" is checked here (a ticket created
+        // while the check runs belongs to the next one).
+        if (!created || created <= after || (options.upTo && created > options.upTo)) continue;
+        found.set(str(r.id), r);
+      }
+    }
+    const rows = [...found.values()].sort((a, b) => str(b.createdtime).localeCompare(str(a.createdtime))).slice(0, limit);
+    const names = await this.contactNames(owner, rows.map((r) => refId(r.contact_id)));
+    return rows.map((r) => this.row(r, schema, me, groups, names));
   }
 
   /** Contacts' names in one query (Contacts can be searched by id; organizations cannot, plan 2.1). */

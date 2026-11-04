@@ -187,7 +187,7 @@ function parseValue(text: string): string | null {
 
 /**
  * A query on an in-memory table, as the real CRM reads it (plan 2.1): conditions joined by AND
- * (no parentheses, no NOT IN), =, !=, IN, LIKE '%x%', ORDER BY one field, LIMIT [offset,] n,
+ * (no parentheses, no NOT IN), =, !=, > (times: their text sorts as they do), IN, LIKE '%x%', ORDER BY one field, LIMIT [offset,] n,
  * count(*). Null for anything else (the CRM's syntax error).
  */
 export function runQuery(query: string, table: ReadonlyArray<Record<string, unknown>>): unknown[] | null {
@@ -196,7 +196,7 @@ export function runQuery(query: string, table: ReadonlyArray<Record<string, unkn
   const [, fieldList = '', where, orderField, orderDir, a, b] = m;
   const tests: Array<(row: Record<string, unknown>) => boolean> = [];
   for (const condition of where ? where.split(/\s+AND\s+/i) : []) {
-    const c = /^(\w+)\s*(=|!=|LIKE|IN)\s*(.+)$/i.exec(condition.trim());
+    const c = /^(\w+)\s*(=|!=|>|LIKE|IN)\s*(.+)$/i.exec(condition.trim());
     if (!c) return null;
     const [, field = '', op = '', rawValue = ''] = c;
     const get = (row: Record<string, unknown>) => String(row[field] ?? '');
@@ -212,6 +212,7 @@ export function runQuery(query: string, table: ReadonlyArray<Record<string, unkn
     if (value === null) return null;
     if (op === '=') tests.push((row) => get(row) === value);
     else if (op === '!=') tests.push((row) => get(row) !== value);
+    else if (op === '>') tests.push((row) => get(row) > value);
     else {
       const needle = value.replace(/^%|%$/g, '').toLowerCase();
       tests.push((row) => get(row).toLowerCase().includes(needle));

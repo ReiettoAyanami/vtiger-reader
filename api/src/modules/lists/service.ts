@@ -63,6 +63,19 @@ export class ListsService {
     return this.all(owner);
   }
 
+  /** The lists a new ticket notifies the user from (plan 5.1). */
+  async notifying(owner: Owner): Promise<TicketList[]> {
+    return repo.listNotifyLists(this.pool, owner);
+  }
+
+  /** Exactly these of the user's lists notify; an id that is not one of theirs is a 404. */
+  async setNotifying(owner: Owner, ids: readonly number[]): Promise<void> {
+    const mine = new Set((await this.all(owner)).map((l) => l.id));
+    const stranger = ids.find((id) => !mine.has(id));
+    if (stranger !== undefined) throw notFound('List', stranger);
+    await repo.setNotifyLists(this.pool, owner, [...new Set(ids)]);
+  }
+
   async remove(owner: Owner, id: number): Promise<void> {
     if (!(await repo.deleteList(this.pool, owner, id))) throw notFound('List', id);
   }

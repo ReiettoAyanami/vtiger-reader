@@ -47,7 +47,7 @@ describe('migrations', () => {
     }
   });
 
-  it("creates the tables; UNIQUE keys only on a user's username and email, one settings row and one CRM link per user, two technical keys", async () => {
+  it("creates the tables; UNIQUE keys only on a user's username and email, one settings row, one CRM link and one notification state per user, three technical keys", async () => {
     const tables = await rawRows(
       `SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`,
     );
@@ -59,7 +59,10 @@ describe('migrations', () => {
       'ai_usage',
       'crm_link',
       'image_mark',
+      'notification_state',
       'password_history',
+      'push_subscription',
+      'push_vapid',
       'rate_limits',
       'schema_migrations',
       'sessions',
@@ -85,6 +88,8 @@ describe('migrations', () => {
       'crm_link.user_id',
       'image_mark.exact_hash',
       'image_mark.user_id',
+      'notification_state.user_id',
+      'push_subscription.endpoint_hash',
       'rate_limits.key',
       'sessions.token',
       'user_settings.user_id',
@@ -103,7 +108,9 @@ describe('migrations', () => {
       'ai_usage.user_id->users',
       'crm_link.user_id->users',
       'image_mark.user_id->users',
+      'notification_state.user_id->users',
       'password_history.user_id->users',
+      'push_subscription.user_id->users',
       'sessions.impersonated_by->users',
       'sessions.user_id->users',
       'sign_in_failures.user_id->users',

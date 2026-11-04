@@ -33,8 +33,22 @@ export async function insertList(db: Queryable, owner: Owner, name: string, filt
 
 /** A new user's lists (the account lifecycle, at creation). */
 export async function insertDefaultLists(db: Queryable, owner: Owner): Promise<void> {
-  const values = DEFAULT_LISTS.map((l, i) => [owner.userId, i, l.name, JSON.stringify(l.filter)]);
-  await db.query('INSERT INTO ticket_list (user_id, position, name, filter) VALUES ?', [values]);
+  const values = DEFAULT_LISTS.map((l, i) => [owner.userId, i, l.name, JSON.stringify(l.filter), l.notify === true]);
+  await db.query('INSERT INTO ticket_list (user_id, position, name, filter, notify) VALUES ?', [values]);
+}
+
+/** The owner's lists a new ticket notifies them from (plan 5.1), in their order. */
+export async function listNotifyLists(db: Queryable, owner: Owner): Promise<TicketList[]> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    'SELECT id, name, filter FROM ticket_list WHERE user_id = ? AND notify = TRUE ORDER BY position, id',
+    [owner.userId],
+  );
+  return rows.map(toList);
+}
+
+/** Exactly these of the owner's lists notify (ids not theirs change nothing). */
+export async function setNotifyLists(db: Queryable, owner: Owner, ids: readonly number[]): Promise<void> {
+  await db.query('UPDATE ticket_list SET notify = (id IN (?)) WHERE user_id = ?', [ids.length > 0 ? ids : [0], owner.userId]);
 }
 
 export async function updateList(db: Queryable, owner: Owner, id: number, name: string, filter: ListFilter): Promise<boolean> {

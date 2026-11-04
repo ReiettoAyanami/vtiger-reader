@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeApi, type Api, type Res } from '../support/api.js';
 import { rawRows } from '../support/db.js';
 import { FakeCrm } from '../support/fake-crm.js';
+import { browserSubscription } from '../support/fake-push.js';
 import { OTHER, TESTER, idOf } from '../support/session.js';
 
 /**
@@ -26,6 +27,8 @@ const SECRET = 'A-secret';
 /** A's CRM access key: never in an answer, not even A's own. */
 const A_KEY = 'AbCdEf0123456789';
 const CRM_URL = new FakeCrm().url;
+/** A's browser: B can neither read nor remove it. */
+const A_BROWSER = browserSubscription('https://push.example.com/send/a-browser');
 /** A's AI key: never in an answer, not even A's own. */
 const A_AI_KEY = 'sk-a-secret-key-000000';
 
@@ -82,6 +85,17 @@ const CASES: Record<string, Case[]> = {
   'GET /api/tickets/:id/files/:fileId': [own((b) => b.get('/api/tickets/17x1/files/15x1'))],
   'PUT /api/tickets/:id/files/:fileId/mark': [own((b) => b.put('/api/tickets/17x1/files/15x1/mark', { mark: null }))],
   'GET /api/customers': [own((b) => b.get('/api/customers?q=rossi'))],
+  // Notifications: B's own settings, bell and stream; A's lists answer as missing ones; A's
+  // browser is not B's to remove (A's rows are checked unchanged at the end)
+  'GET /api/notifications/settings': [own((b) => b.get('/api/notifications/settings'))],
+  'PUT /api/notifications/settings': [like((b, i) => b.put('/api/notifications/settings', { enabled: true, lists: [i.list] }))],
+  'GET /api/notifications': [own((b) => b.get('/api/notifications'))],
+  'POST /api/notifications/seen': [own((b) => b.post('/api/notifications/seen', { upTo: '2026-09-29T09:00:00Z' }))],
+  'GET /api/notifications/stream': [own((b) => b.stream('/api/notifications/stream', 'event: ready'))],
+  'GET /api/push/key': [own((b) => b.get('/api/push/key'))],
+  'PUT /api/push/subscription': [own((b) => b.put('/api/push/subscription', browserSubscription()))],
+  'POST /api/push/subscription/delete': [own((b) => b.post('/api/push/subscription/delete', { endpoint: A_BROWSER.endpoint }))],
+  'POST /api/push/test': [own((b) => b.post('/api/push/test'))],
   // B's own account (a wrong current password: nothing changes for the next cases)
   'POST /api/account/password': [own((b) => b.post('/api/account/password', { currentPassword: 'not-mine-0000!', newPassword: 'Taken-pass-00001' }))],
   // Admin: B is no administrator
@@ -112,6 +126,8 @@ async function recordA(): Promise<Ids> {
   const list = (await api.post('/api/lists', { name: SECRET, filter: { owner: 'me', status: 'any' } })).body.id as number;
   const provider = (await api.post('/api/ai/providers', { kind: 'openai', label: SECRET, apiKey: A_AI_KEY })).body.id as number;
   await api.put('/api/ai/tasks', { default: { providerId: provider, model: 'gpt-x' } });
+  expect((await api.put('/api/notifications/settings', { enabled: false, lists: [list] })).status).toBe(200);
+  expect((await api.put('/api/push/subscription', A_BROWSER)).status).toBe(204);
   return { user: await idOf(api.app, TESTER), list, provider };
 }
 
@@ -124,6 +140,8 @@ async function dataOf(userId: number) {
     lists: await rawRows('SELECT * FROM ticket_list WHERE user_id = ? ORDER BY id', [userId]),
     aiProviders: await rawRows('SELECT * FROM ai_provider WHERE user_id = ? ORDER BY id', [userId]),
     aiTasks: await rawRows('SELECT * FROM ai_task_model WHERE user_id = ? ORDER BY id', [userId]),
+    notifications: await rawRows('SELECT * FROM notification_state WHERE user_id = ?', [userId]),
+    browsers: await rawRows('SELECT * FROM push_subscription WHERE user_id = ? ORDER BY id', [userId]),
   };
 }
 
