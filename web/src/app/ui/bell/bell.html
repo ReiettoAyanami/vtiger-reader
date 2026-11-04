@@ -1,0 +1,31 @@
+@if (enabled()) {
+  <button
+    mat-icon-button
+    type="button"
+    class="bell"
+    [attr.aria-label]="count() ? count() + ' new tickets' : 'No new tickets'"
+    [matMenuTriggerFor]="menu"
+    (menuOpened)="opened()"
+  >
+    <mat-icon
+      [matBadge]="count() > 99 ? '99+' : count()"
+      [matBadgeHidden]="count() === 0"
+      matBadgeSize="small"
+      aria-hidden="false"
+      >{{ count() ? 'notifications_active' : 'notifications' }}</mat-icon
+    >
+  </button>
+  <mat-menu #menu="matMenu" xPosition="before" class="bell-menu">
+    @for (ticket of shown(); track ticket.id) {
+      <a mat-menu-item [routerLink]="ticketPath(ticket)" class="item">
+        <span class="line">
+          <span class="number">{{ ticket.number }}</span>
+          <span class="when">{{ ticket.createdAt | when }}</span>
+        </span>
+        <span class="ticket-title">{{ ticket.title }}</span>
+      </a>
+    } @empty {
+      <p class="empty">No new tickets.</p>
+    }
+  </mat-menu>
+}

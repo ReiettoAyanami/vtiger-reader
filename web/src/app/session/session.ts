@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthApi, type SessionUser } from '../data/auth-api';
+import { PushSubscriptions } from '../notifications/push-subscriptions';
 
 /**
  * Who is signed in (design-accounts.md, "session"): the server decides, this only remembers what it
@@ -13,6 +14,7 @@ import { AuthApi, type SessionUser } from '../data/auth-api';
 })
 export class Session {
   private readonly authApi = inject(AuthApi);
+  private readonly push = inject(PushSubscriptions);
   private readonly current = signal<SessionUser | null>(null);
   private loading: Promise<SessionUser | null> | null = null;
 
@@ -34,7 +36,7 @@ export class Session {
    */
   path(page = ''): string {
     const user = this.current();
-    return ((user ? `/${user.username}` : '') + page) || '/';
+    return (user ? `/${user.username}` : '') + page || '/';
   }
 
   /** Asks the server once who this browser is; later calls get the same answer. */
@@ -70,6 +72,8 @@ export class Session {
    * stays signed in here too: the session is still alive, so saying otherwise would lie.
    */
   async signOut(): Promise<void> {
+    // This browser stops getting the user's notifications: the next one to sign in here must not.
+    await this.push.disable().catch(() => undefined);
     await firstValueFrom(this.authApi.signOut());
     this.forget();
   }

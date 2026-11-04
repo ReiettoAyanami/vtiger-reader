@@ -1,0 +1,62 @@
+<section class="notifications" aria-labelledby="notifications-title">
+  <h2 class="title" id="notifications-title">Notifications</h2>
+
+  @if (failure(); as failure) {
+    <p class="note error">{{ failure }}</p>
+  } @else if (settings.hasValue() && lists.hasValue()) {
+    <mat-slide-toggle [checked]="enabled()" (change)="enabled.set($event.checked)">
+      Tell me about new tickets
+    </mat-slide-toggle>
+    <p class="note">
+      Checked every 2 minutes, day and night. The bell in the top bar lists them too.
+    </p>
+
+    <h3 class="sub">From these lists</h3>
+    <div class="lists">
+      @for (list of lists.value(); track list.id) {
+        <mat-checkbox
+          [checked]="picked().has(list.id)"
+          [disabled]="!enabled()"
+          (change)="toggle(list.id, $event.checked)"
+          >{{ list.name }}</mat-checkbox
+        >
+      } @empty {
+        <p class="note">No list yet: make one on the tickets page.</p>
+      }
+    </div>
+
+    <div class="row-end">
+      <button mat-flat-button type="button" [disabled]="saving() || !dirty()" (click)="save()">
+        Save
+      </button>
+    </div>
+
+    <h3 class="sub">This browser</h3>
+    <p class="note">{{ stateText(push.state()) }}</p>
+    <p class="note">
+      {{ settings.value().devices }}
+      {{ settings.value().devices === 1 ? 'browser gets' : 'browsers get' }} your notifications.
+    </p>
+    <div class="row-end">
+      @if (push.state() === 'on') {
+        <button mat-button type="button" [disabled]="pushBusy()" (click)="test()">
+          Send a test
+        </button>
+        <button mat-button type="button" [disabled]="pushBusy()" (click)="turnPush(false)">
+          Turn off here
+        </button>
+      } @else if (push.state() === 'off') {
+        <button
+          mat-flat-button
+          type="button"
+          [disabled]="pushBusy() || !settings.value().enabled"
+          (click)="turnPush(true)"
+        >
+          Turn on here
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="note">…</p>
+  }
+</section>

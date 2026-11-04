@@ -7,9 +7,11 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
+import { PushSubscriptions } from './notifications/push-subscriptions';
 import { Session } from './session/session';
 import { Sidebar } from './sidebar/sidebar';
 import { Appearance } from './ui/appearance';
+import { Bell } from './ui/bell/bell';
 import { VersionLabel } from './ui/version-label/version-label';
 import { ViewingAsBar } from './ui/viewing-as-bar/viewing-as-bar';
 
@@ -37,6 +39,7 @@ function routeIsBare(route: ActivatedRouteSnapshot): boolean {
 @Component({
   selector: 'app-root',
   imports: [
+    Bell,
     MatButtonModule,
     MatIconModule,
     MatSidenavModule,
@@ -70,6 +73,11 @@ export class App {
     this.navigated$.pipe(map(() => routeIsBare(this.router.routerState.snapshot.root) || this.session.user() === null)),
     { initialValue: true },
   );
+
+  constructor() {
+    // A notification clicked while the app is open opens its ticket here, without reloading.
+    inject(PushSubscriptions).listen();
+  }
 
   /** An administrator is acting as this user (design-accounts.md, "impersonation"). */
   protected readonly impersonating = computed(() => (this.session.user()?.impersonatedBy ?? null) !== null);

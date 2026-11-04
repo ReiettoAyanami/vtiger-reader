@@ -24,6 +24,7 @@ import { Appearance } from '../ui/appearance';
 import { AccountSettings } from './account-settings/account-settings';
 import { AiSettings } from './ai-settings/ai-settings';
 import { CrmLinkSettings } from './crm-link-settings/crm-link-settings';
+import { NotificationSettings } from './notification-settings/notification-settings';
 
 /** The time zones this browser knows, UTC (which it does not list) and the current one. */
 function zoneOptions(current: string): string[] {
@@ -67,6 +68,7 @@ type Field = 'language' | 'timezone';
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
+    NotificationSettings,
     ReactiveFormsModule,
   ],
   templateUrl: './settings-page.html',

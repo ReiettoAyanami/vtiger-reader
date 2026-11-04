@@ -91,3 +91,11 @@ mat-sidenav-content.impersonating mat-toolbar {
 app-offline-bar {
   margin: 8px;
 }
+
+/* The title takes the room between the menu button and the bell, which sits at the end. */
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

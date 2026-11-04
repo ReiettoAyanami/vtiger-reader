@@ -1,0 +1,42 @@
+/* Apart from the sections above it, like the AI. */
+.notifications {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.title {
+  margin: 0 0 8px;
+  font: var(--mat-sys-title-medium);
+}
+
+.sub {
+  margin: 8px 0 0;
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.note {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.note.error {
+  color: var(--mat-sys-error);
+}
+
+.lists {
+  display: flex;
+  flex-direction: column;
+}
+
+.row-end {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}

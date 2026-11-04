@@ -16,6 +16,7 @@ import { SettingsApi } from './data/settings-api';
 import { TicketsApi } from './data/tickets-api';
 import { AiApi } from './data/ai-api';
 import { ListsApi } from './data/lists-api';
+import { NotificationsApi } from './data/notifications-api';
 import { VersionApi } from './data/version-api';
 
 const lenzi: SessionUser = { id: 1, username: 'lenzi', role: 'admin', impersonatedBy: null };
@@ -70,6 +71,14 @@ function pageData(getSettings: () => unknown) {
     { provide: VersionApi, useValue: { getVersion: () => of('dev26.0.0') } },
     // the admin view
     { provide: AdminApi, useValue: { listUsers: () => of([]) } },
+    // the bell in the top bar
+    {
+      provide: NotificationsApi,
+      useValue: {
+        bell: () => of({ enabled: true, items: [] }),
+        settings: () => of({ enabled: true, lists: [], devices: 0 }),
+      },
+    },
   ];
 }
 
