@@ -154,7 +154,12 @@ describe('TicketPage', () => {
 
   beforeEach(() => {
     ticket = () => of(TICKET);
+    // The fixtures happen on 3 Nov 2026: "today" there, so the page shows times without a date.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-03T15:00:00Z'));
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it('the header: number, status, title, who, Open in CRM', async () => {
     const page = await render();
