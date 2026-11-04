@@ -18,7 +18,7 @@
     "web": "npm --prefix ../web run build",
     "desktop": "npm run build && electron .",
     "smoke": "npm run build && electron . --smoke",
-    "dist": "npm run web && npm run build && electron-builder --win --publish never",
+    "dist": "npm run web && npm run build && electron-builder --win --publish never && node scripts/check-dist.mjs",
     "icons": "node scripts/icons.mjs",
     "test": "vitest run --config vitest.unit.config.ts && vitest run",
     "test:unit": "vitest run --config vitest.unit.config.ts",
