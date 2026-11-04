@@ -112,65 +112,60 @@ jobs:
           (cd api && npm audit --audit-level=high)
           (cd web && npm audit --audit-level=high)
 
-  image:
-    name: Image
+  desktop:
+    name: Desktop app (Windows installer)
     needs: [version, api, web, audit]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       # contents: write for the GitHub Release of a published version.
       contents: write
-      packages: write
     steps:
       - uses: actions/checkout@v4
-      - id: target
-        name: Published only from main, with a final version never published before
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            web/package-lock.json
+      - name: The web build
+        working-directory: web
         env:
-          VERSION: ${{ needs.version.outputs.version }}
+          NG_CLI_ANALYTICS: 'false'
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          publish=false
-          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_NAME" = main ]; then
-            if docker buildx imagetools inspect "$image:$VERSION" >/dev/null 2>&1; then
-              echo "::warning::$image:$VERSION is already published: this commit is not (a version is never overwritten; lenzi decides the next one)"
-            else
-              publish=true
-            fi
-          fi
-          tags="$image:$VERSION"
-          # A release is also the image that `latest` points to.
-          [[ "$VERSION" == v* ]] && tags="$tags,$image:latest"
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "tags=$tags" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - if: steps.target.outputs.publish == 'true'
-        uses: docker/login-action@v3
+          npm ci
+          npx ng build
+      - name: The app and its installer
+        working-directory: api
+        run: |
+          npm ci
+          npm run build
+          npx electron-builder --win --publish never
+      # The packaged app starts unseen, shows the tickets page from its own API, holds its lock, quits.
+      - name: Smoke test of the packaged app
+        working-directory: api/release/win-unpacked
+        shell: bash
+        env:
+          VTIGER_READER_DATA: ${{ runner.temp }}/vtiger-reader-smoke
+        run: ./"vtiger reader.exe" --smoke
+      - uses: actions/upload-artifact@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # Built on every push (the Dockerfile must keep working); pushed only when published. amd64 for
-      # now.
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64
-          push: ${{ steps.target.outputs.publish == 'true' }}
-          tags: ${{ steps.target.outputs.tags }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ needs.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      # The GitHub Release of a published version.
-      - if: steps.target.outputs.publish == 'true'
+          name: vtiger-reader-setup-${{ needs.version.outputs.version }}
+          path: api/release/*.exe
+          retention-days: 30
+      # A final version from main: its GitHub Release, with the installer (never overwritten: lenzi
+      # decides the next version).
+      - if: github.event_name == 'push' && github.ref_name == 'main'
         name: GitHub Release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::warning::$VERSION is already released: this commit is not"
+            exit 0
+          fi
           prerelease=""
           [[ "$VERSION" == v* ]] || prerelease="--prerelease"
-          gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" $prerelease \
-            --notes "Image: ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION."
+          gh release create "$VERSION" api/release/*.exe --target "$GITHUB_SHA" --title "$VERSION" $prerelease --notes "The Windows installer of vtiger reader $VERSION."

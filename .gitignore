@@ -16,5 +16,5 @@ api/release/
 # The bare dev server's database (npm run dev in api/): a SQLite file of one's own
 api/data/
 
-# The first administrator's password, written at the first start (delete it after reading)
+# The old server version's first-administrator password file (no longer made; delete it)
 to_delete.password.txt

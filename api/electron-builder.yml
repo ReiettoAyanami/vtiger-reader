@@ -1,0 +1,35 @@
+# The desktop app's Windows installer (plan 7.5): npm run dist → release/
+appId: dev.lenzi.vtiger-reader
+productName: vtiger reader
+copyright: The Unlicense (public domain)
+directories:
+  output: release
+  buildResources: assets
+files:
+  - dist/**/*
+  - '!dist/**/*.map'
+  - migrations/**/*
+  - assets/icon.png
+  - assets/tray*.png
+  - package.json
+# The Angular build, served by the app's own API (src/desktop/main.ts: process.resourcesPath/web).
+extraResources:
+  - from: ../web/dist/web/browser
+    to: web
+# Native code cannot load from inside app.asar.
+asarUnpack:
+  - '**/node_modules/sharp/**'
+  - '**/node_modules/@img/**'
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.png
+nsis:
+  oneClick: true
+  perMachine: false
+  # Uninstalling keeps the profile (%APPDATA%/vtiger-reader): the database and the sealing key.
+  deleteAppDataOnUninstall: false
+  artifactName: vtiger-reader-setup-${version}.exe
+# Publishing (GitHub Releases, auto-update): decided at release.
+publish: null

@@ -1,4 +1,4 @@
-# Security patches for every instance's image : weekly, the minor
+# Security patches for the desktop app: weekly, the minor
 # and patch updates of each package grouped in one pull request. Dependabot reads this file from the
 # repository's default branch (main since 2026-10-05), and its pull requests go to `dev`, the branch
 # every change starts from and comes back to (lenzi, 2026-10-05): main holds only final versions.
@@ -21,13 +21,6 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-
-  # The Node base image of the Dockerfile.
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: weekly
-    target-branch: dev
 
   # The actions of the CI.
   - package-ecosystem: github-actions

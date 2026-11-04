@@ -1,54 +1,68 @@
 # vtiger-reader
 
-A fast, read-only web interface to a **vtiger / OpenCRM Italia** CRM, focused on tickets, with AI help on demand.
+A fast, read-only **desktop app** for a **vtiger / OpenCRM Italia** CRM, focused on tickets, with AI help on demand.
 
-The stock vtiger interface is slow. vtiger-reader shows the same tickets faster, adds a few things the CRM does not have (cleaned-up mails with the raw original one click away, signature images set aside, "has this happened before?", notifications for new tickets) and an optional AI side panel. Each user picks their own AI providers and which model does what.
+The stock vtiger interface is slow. vtiger-reader shows the same tickets faster, adds a few things the CRM does not have (cleaned-up mails with the raw original one click away, signature images set aside, "has this happened before?", notifications for new tickets) and an optional AI side panel. You pick your own AI providers and which model does what.
 
-**The CRM stays the only source of CRM data.** vtiger-reader stores its users and their preferences, nothing the CRM already holds: tickets, comments, customers and attachments are read from the CRM at every request.
+**The CRM stays the only source of CRM data.** The app stores your preferences on your PC, nothing the CRM already holds: tickets, comments, customers and attachments are read from the CRM every time.
 
-> Status: early development. Accounts, settings, each user's CRM link, the tickets (each user's own lists, search, filters, a ticket with its mails cleaned or raw, attachments, signature images set aside) and the AI panel (each user's own providers and models: summarize, draft a reply, look at the photos, has this happened before, any question) work; notifications come next. Read-only: the buttons that would write to the CRM are there, disabled.
+> Status: early development. Windows only for now. Your CRM link, the tickets (your own lists, search, filters, a ticket with its mails cleaned or raw, attachments, signature images set aside), the AI panel and the notifications work. Read-only: the buttons that would write to the CRM are there, disabled.
 
-## Stack
+## Install
 
-- **API**: Node 22, TypeScript, Fastify, mysql2, Better Auth (`api/`)
-- **Web**: Angular 21, Angular Material 3, no SSR (`web/`)
-- **Database**: MySQL 8 (users and preferences only)
-- **CRM**: the vtiger webservice API (`/webservice.php`); each user links their own CRM from Settings: its address, their username and access key
+Download `vtiger-reader-setup-<version>.exe` (the CI builds it on every push: the artifact of the "Desktop app" job; final versions also as a GitHub Release) and run it. It installs for your Windows user only, no administrator needed. It is not signed yet: Windows says "unknown publisher" the first time.
+
+Then, in the app: Settings → CRM account (the CRM's address, your username, your access key from the CRM's My Preferences).
+
+- Closing the window keeps the app in the tray, so new tickets are still told (every 2 minutes). Quit it from the tray icon.
+- Settings → Notifications: which of your lists notify, a test, and "Start with Windows" (in the tray).
+- Your data lives in `%APPDATA%\vtiger-reader`: the database (SQLite), the key that seals your CRM and AI keys (kept by Windows for your user), the log. Uninstalling keeps it.
+
+## How it is made
+
+- **App**: Electron (`api/src/desktop/`). Its main process runs the API itself, on `127.0.0.1` with a random port; only its own window can use it (a secret cookie, new at every start).
+- **API**: Node, TypeScript, Fastify, SQLite through `node:sqlite` (`api/`)
+- **Web**: Angular 21, Angular Material 3 (`web/`), shown in the app's window
+- **CRM**: the vtiger webservice API (`/webservice.php`), with your own account
 
 ## Development
 
-Everything runs in containers; the host only needs Docker.
+Node 22.13 or later; nothing else (no database server, no Docker).
 
 ```bash
-cp .env.example .env          # then replace the placeholders
-docker compose -f compose.dev.yaml up -d
+cd api && npm install
+cd ../web && npm install
 ```
 
-- web (Angular dev server): http://localhost:4200
-- API: http://localhost:3001
-- MySQL: localhost:3306 (`DB_HOST_PORT`)
+In the browser, with live reload:
 
-The first administrator (`admin` unless `ADMIN_USERNAME` says otherwise) is created at the first start; its password is written to `to_delete.password.txt` at the project root. Read it, then delete the file.
+```bash
+cd api && npm run dev        # the API on http://127.0.0.1:3000, database in api/data/
+cd web && npx ng serve       # http://localhost:4200 (proxies /api to the API)
+```
+
+There notifications go to the API's log: there is no desktop to show them on.
+
+The desktop app:
+
+```bash
+cd api
+npm run web                  # the Angular build the app shows
+npm run desktop              # builds the API and starts the app (data in %APPDATA%\vtiger-reader-dev)
+npm run smoke                # starts it unseen, checks the window, the bridge and the lock, quits
+npm run dist                 # the installer, in api/release/
+```
 
 Tests:
 
 ```bash
-docker compose -f compose.dev.yaml exec api npm test          # API (needs the dev MySQL)
-docker compose -f compose.dev.yaml exec web npx ng test --watch=false
+cd api && npm test           # SQLite in memory, a few seconds
+cd web && npx ng test --watch=false
 ```
-
-## Production
-
-```bash
-cp .env.example .env          # APP_URL, AUTH_SECRET, DB_PASSWORD, ENCRYPTION_KEY...
-docker compose -f compose.prod.yaml up -d --build
-```
-
-The app listens on `APP_PORT` (8080). Put it behind a reverse proxy with https: the browser's push notifications need it.
 
 ## Versions
 
-`<prefix><year>.<backend>.<frontend>.<build>`, e.g. `dev26.0.0.0000`. `dev` versions live on `dev` and on work branches named after their version; `a` (alpha), `b` (beta) and `v` (release) only on `main`, where the CI publishes the image to `ghcr.io`.
+`<prefix><year>.<backend>.<frontend>.<build>`, e.g. `dev26.0.0.0000`. `dev` versions live on `dev` and on work branches named after their version; `a` (alpha), `b` (beta) and `v` (release) only on `main`, where the CI publishes the installer as a GitHub Release.
 
 ## License
 
