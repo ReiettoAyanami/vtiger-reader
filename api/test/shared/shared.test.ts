@@ -73,17 +73,13 @@ describe('source rules', () => {
       // Unlinking a CRM account deletes its row: the sealed access key is not
       // kept once the user takes it back (crm/repository.ts). Taking back an image mark deletes it: a
       // preference, not a record (tickets/repository.ts); so is deleting one of one's lists
-      // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts). A browser's
-      // push subscription goes when it is turned off or the push service says it is dead, and the
-      // VAPID keys with every subscription when they no longer open (notifications/repository.ts):
-      // keys and addresses of a device, nothing to keep.
+      // (lists/repository.ts), an AI provider or a task's own model (ai/repository.ts).
       const normalized = file.replace(/\\/g, '/');
       if (
         normalized.endsWith('/src/modules/crm/repository.ts') ||
         normalized.endsWith('/src/modules/tickets/repository.ts') ||
         normalized.endsWith('/src/modules/lists/repository.ts') ||
-        normalized.endsWith('/src/modules/ai/repository.ts') ||
-        normalized.endsWith('/src/modules/notifications/repository.ts')
+        normalized.endsWith('/src/modules/ai/repository.ts')
       ) {
         continue;
       }

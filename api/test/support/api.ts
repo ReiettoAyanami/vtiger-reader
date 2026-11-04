@@ -3,7 +3,7 @@ import { expect } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import type { Clock } from '../../src/shared/time.js';
 import type { FakeCrm } from './fake-crm.js';
-import { FakePush } from './fake-push.js';
+import { FakeNotifier } from './fake-notifier.js';
 import { testPool } from './db.js';
 
 /** Fixed "now" for the tests: 2026-09-29 12:00 in Rome. */
@@ -106,8 +106,8 @@ export async function makeApi(
     hostAllowed?: (host: string) => Promise<boolean>;
     /** Fake AI providers (support/fake-ai.ts), and the hosts AI_PRIVATE_HOSTS would list. */
     ai?: { fetch: typeof fetch; privateHosts?: string[] };
-    /** A fake push service (support/fake-push.ts); a new one, unread, when omitted. */
-    push?: FakePush;
+    /** The desktop's notifications (support/fake-notifier.ts); a new one, unread, when omitted. */
+    notifier?: FakeNotifier;
   } = {},
 ): Promise<Api> {
   // The CRM is a fake one (its made-up host allowed), or no network at all: a test never calls a
@@ -119,7 +119,7 @@ export async function makeApi(
     clock: opts.clock ?? fixedClock,
     webDist: opts.webDist,
     crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
-    push: { send: (opts.push ?? new FakePush()).send, hostAllowed: opts.hostAllowed ?? (async () => true) },
+    notifier: opts.notifier ?? new FakeNotifier(),
     ai: {
       fetch: opts.ai?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests'))),
       hostAllowed: opts.hostAllowed ?? (async () => true),

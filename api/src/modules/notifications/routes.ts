@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { NotificationsService, SubscriptionInput } from './service.js';
+import type { NotificationsService } from './service.js';
 
 const settingsBody = {
   type: 'object',
@@ -18,36 +18,10 @@ const seenBody = {
   properties: { upTo: { type: 'string', minLength: 1, maxLength: 40 } },
 } as const;
 
-const base64url = { type: 'string', pattern: '^[A-Za-z0-9_-]+={0,2}$' } as const;
-
-const subscriptionBody = {
-  type: 'object',
-  // A browser's PushSubscription.toJSON() has expirationTime too: allowed, not kept.
-  additionalProperties: false,
-  required: ['endpoint', 'keys'],
-  properties: {
-    endpoint: { type: 'string', minLength: 1, maxLength: 1000 },
-    expirationTime: { type: ['number', 'null'] },
-    keys: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['p256dh', 'auth'],
-      properties: { p256dh: { ...base64url, maxLength: 200 }, auth: { ...base64url, maxLength: 100 } },
-    },
-  },
-} as const;
-
-const endpointBody = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['endpoint'],
-  properties: { endpoint: { type: 'string', minLength: 1, maxLength: 1000 } },
-} as const;
-
 /** How long a quiet stream waits before a comment line, so that no proxy closes it. */
 const KEEP_ALIVE_MS = 25_000;
 
-/** The session's user's notifications (plan 5): settings, the bell, the live stream, their browsers. */
+/** The profile's notifications (plan 5, 7.2): settings, the bell, the live stream, a test. */
 export function notificationRoutes(app: FastifyInstance, deps: { notifications: NotificationsService }): void {
   const { notifications } = deps;
   // The open streams: ended when the server stops (otherwise it would wait for them).
@@ -96,18 +70,6 @@ export function notificationRoutes(app: FastifyInstance, deps: { notifications: 
     req.raw.on('close', close);
   });
 
-  app.get('/api/push/key', async () => ({ publicKey: await notifications.publicKey() }));
-
-  app.put<{ Body: SubscriptionInput }>('/api/push/subscription', { schema: { body: subscriptionBody } }, async (req, reply) => {
-    await notifications.subscribe(req.owner, { endpoint: req.body.endpoint, keys: req.body.keys });
-    return reply.code(204).send();
-  });
-
-  // A POST: some proxies drop the body of a DELETE.
-  app.post<{ Body: { endpoint: string } }>('/api/push/subscription/delete', { schema: { body: endpointBody } }, async (req, reply) => {
-    await notifications.unsubscribe(req.owner, req.body.endpoint);
-    return reply.code(204).send();
-  });
-
-  app.post('/api/push/test', async (req) => ({ sent: await notifications.test(req.owner) }));
+  // A notification on this PC, to see that they work (plan 7.2): whether it was shown.
+  app.post('/api/notifications/test', async (req) => ({ shown: await notifications.test(req.owner) }));
 }

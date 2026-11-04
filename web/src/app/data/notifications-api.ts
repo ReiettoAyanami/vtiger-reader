@@ -2,9 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
-import { Bell, NotificationSettings, SubscriptionInput } from './notifications';
+import { Bell, NotificationSettings } from './notifications';
 
-/** Gateway of the user's notifications and push (/api/notifications, /api/push): no state, no logic. */
+/** Gateway of the profile's notifications (/api/notifications): no state, no logic. */
 @Injectable({
   providedIn: 'root',
 })
@@ -31,25 +31,10 @@ export class NotificationsApi {
     return this.http.post<void>('/api/notifications/seen', { upTo }).pipe(map(() => undefined));
   }
 
-  /** GET /api/push/key: the server's public VAPID key (base64url). */
-  publicKey(): Observable<string> {
-    return this.http.get<{ publicKey: string }>('/api/push/key').pipe(map((r) => r.publicKey));
-  }
-
-  /** PUT /api/push/subscription: this browser gets the user's notifications. 204. */
-  subscribe(subscription: SubscriptionInput): Observable<void> {
-    return this.http.put<void>('/api/push/subscription', subscription).pipe(map(() => undefined));
-  }
-
-  /** POST /api/push/subscription/delete: this browser no longer does. 204. */
-  unsubscribe(endpoint: string): Observable<void> {
+  /** POST /api/notifications/test: a notification on this PC; whether the desktop showed it. */
+  test(): Observable<boolean> {
     return this.http
-      .post<void>('/api/push/subscription/delete', { endpoint })
-      .pipe(map(() => undefined));
-  }
-
-  /** POST /api/push/test: a notification to every browser of the user; how many got it. */
-  test(): Observable<number> {
-    return this.http.post<{ sent: number }>('/api/push/test', {}).pipe(map((r) => r.sent));
+      .post<{ shown: boolean }>('/api/notifications/test', {})
+      .pipe(map((r) => r.shown));
   }
 }

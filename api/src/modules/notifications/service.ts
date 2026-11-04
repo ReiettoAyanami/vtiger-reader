@@ -1,28 +1,22 @@
 import type { Pool } from '../../db/pool.js';
-import { badRequest } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
-import { isPublicHost } from '../../shared/public-host.js';
 import { parseInstant, type Clock } from '../../shared/time.js';
 import { Semaphore } from '../crm/client.js';
 import { CrmError } from '../crm/webservice.js';
 import type { ListsService } from '../lists/service.js';
 import { crmTime, type TicketRow, type TicketsService } from '../tickets/service.js';
-import type { PushMessage, PushSender } from './push.js';
+import type { NotificationMessage, Notifier } from './notifier.js';
 import * as repo from './repository.js';
 
 /** Every 2 minutes, around the clock (plan 5.1). */
 export const CHECK_EVERY_MS = 120_000;
 /** At most this many tickets in the bell. */
 export const BELL_SIZE = 50;
-/** At most this many browsers per user. */
-export const MAX_SUBSCRIPTIONS = 20;
 
 export interface NotificationSettings {
   enabled: boolean;
   /** The ids of the user's lists a new ticket notifies them from. */
   lists: number[];
-  /** How many browsers / devices get push notifications. */
-  devices: number;
 }
 
 export interface Bell {
@@ -31,21 +25,15 @@ export interface Bell {
   items: TicketRow[];
 }
 
-/** What a browser gives when it allows push notifications (PushSubscription.toJSON()). */
-export interface SubscriptionInput {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-}
-
 /** What an open page hears (the SSE stream): new tickets for its user, to read the bell again. */
 export interface LiveEvent {
   count: number;
 }
 
 /**
- * Notifications (plan 5): a check every 2 minutes for every user with a CRM link, with their own
- * CRM account (the CRM's permissions differ); the new tickets that are in one of the lists they
- * picked go to their open pages (SSE) and their browsers (Web Push). The CRM stays the only source:
+ * Notifications (plan 5, 7.2): a check every 2 minutes for every profile with a CRM link, with its
+ * own CRM account; the new tickets that are in one of the lists it picked go to the open app (SSE)
+ * and to the desktop (the Notifier: the system's own notifications). The CRM stays the only source:
  * we keep how far each check has looked (a time), never which tickets it saw.
  */
 export class NotificationsService {
@@ -57,23 +45,18 @@ export class NotificationsService {
     private readonly pool: Pool,
     private readonly tickets: TicketsService,
     private readonly lists: ListsService,
-    private readonly push: PushSender,
+    private readonly notifier: Notifier,
     private readonly options: {
       clock: Clock;
       log: { warn: (obj: object, message: string) => void; info: (message: string) => void };
-      hostAllowed?: (host: string) => Promise<boolean>;
     },
   ) {}
 
   // ---- Settings ------------------------------------------------------------------------------
 
   async settings(owner: Owner): Promise<NotificationSettings> {
-    const [state, lists, devices] = await Promise.all([
-      repo.findState(this.pool, owner),
-      this.lists.notifying(owner),
-      repo.countSubscriptions(this.pool, owner),
-    ]);
-    return { enabled: state.enabled, lists: lists.map((l) => l.id), devices };
+    const [state, lists] = await Promise.all([repo.findState(this.pool, owner), this.lists.notifying(owner)]);
+    return { enabled: state.enabled, lists: lists.map((l) => l.id) };
   }
 
   /**
@@ -134,52 +117,13 @@ export class NotificationsService {
     for (const listener of this.listeners.get(owner.userId) ?? []) listener(event);
   }
 
-  // ---- Push subscriptions --------------------------------------------------------------------
+  // ---- On the desktop -----------------------------------------------------------------------
 
-  async publicKey(): Promise<string> {
-    return this.push.publicKey();
-  }
-
-  /** A browser allows push notifications for the user. Its push service must be a public https address. */
-  async subscribe(owner: Owner, input: SubscriptionInput): Promise<void> {
-    let url: URL;
-    try {
-      url = new URL(input.endpoint);
-    } catch {
-      throw badRequest('Not an address', 'endpoint');
-    }
-    // The server sends to this address: never to this machine or the LAN.
-    const allowed = this.options.hostAllowed ?? isPublicHost;
-    if (url.protocol !== 'https:' || url.username || url.password || !(await allowed(url.hostname))) {
-      throw badRequest('A push service is a public https address', 'endpoint');
-    }
-    const p256dh = Buffer.from(input.keys.p256dh, 'base64url');
-    const auth = Buffer.from(input.keys.auth, 'base64url');
-    if (p256dh.length !== 65 || p256dh[0] !== 4) throw badRequest('Not a P-256 public key', 'keys.p256dh');
-    if (auth.length !== 16) throw badRequest('Not a 16-byte secret', 'keys.auth');
-    const known = (await repo.listSubscriptions(this.pool, owner)).some((s) => s.endpoint === url.href);
-    if (!known && (await repo.countSubscriptions(this.pool, owner)) >= MAX_SUBSCRIPTIONS) {
-      throw badRequest(`At most ${MAX_SUBSCRIPTIONS} devices: turn notifications off on one you no longer use`, 'endpoint');
-    }
-    await repo.saveSubscription(this.pool, owner, { endpoint: url.href, p256dh: input.keys.p256dh, auth: input.keys.auth });
-  }
-
-  /** A browser stops push notifications for the user (no error when it had none). */
-  async unsubscribe(owner: Owner, endpoint: string): Promise<void> {
-    let href = endpoint;
-    try {
-      href = new URL(endpoint).href;
-    } catch {
-      // Not an address: nothing of the user's has it.
-    }
-    await repo.deleteSubscription(this.pool, owner, href);
-  }
-
-  /** A test notification to each of the user's browsers; how many took it. */
-  async test(owner: Owner): Promise<number> {
-    return this.push.send(owner, {
+  /** A test notification on this PC; whether it was shown. */
+  async test(owner: Owner): Promise<boolean> {
+    return this.notifier.show(owner, {
       title: 'vtiger-reader',
-      body: 'Notifications work on this device.',
+      body: 'Notifications work on this PC.',
       url: '/',
       tag: `test-${owner.userId}`,
     });
@@ -258,13 +202,13 @@ export class NotificationsService {
     );
     if (found.length === 0) return [];
     this.tell(owner, { count: found.length });
-    await this.push.send(owner, messageFor(owner, found));
+    await this.notifier.show(owner, messageFor(owner, found));
     return found;
   }
 }
 
 /** One ticket: its number and title, opening it. Several: how many, opening the list (plan 5.3). */
-export function messageFor(owner: Owner, found: readonly TicketRow[]): PushMessage {
+export function messageFor(owner: Owner, found: readonly TicketRow[]): NotificationMessage {
   const tag = `tickets-${owner.userId}`;
   const first = found[0];
   if (found.length === 1 && first) {

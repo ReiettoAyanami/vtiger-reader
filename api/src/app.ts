@@ -11,7 +11,7 @@ import { AiError } from './modules/ai/adapter.js';
 import { aiRoutes } from './modules/ai/routes.js';
 import { AiService } from './modules/ai/service.js';
 import { listRoutes } from './modules/lists/routes.js';
-import { PushSender, type PushSend } from './modules/notifications/push.js';
+import { logNotifier, type Notifier } from './modules/notifications/notifier.js';
 import { notificationRoutes } from './modules/notifications/routes.js';
 import { NotificationsService } from './modules/notifications/service.js';
 import { ListsService } from './modules/lists/service.js';
@@ -46,8 +46,8 @@ export interface BuildAppOptions {
   ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[]; claudeCode?: string[] };
   /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
   crm?: Partial<CrmConfig> & { fetch?: Fetch; hostAllowed?: (host: string) => Promise<boolean> };
-  /** Web Push (tests: a fake push service, its host allowed). */
-  push?: { send?: PushSend; hostAllowed?: (host: string) => Promise<boolean> };
+  /** Where the notifications go (plan 7.2): the desktop's; a log line when omitted (the bare server). */
+  notifier?: Notifier;
 }
 
 declare module 'fastify' {
@@ -92,14 +92,6 @@ function aiProblem(error: AiError): ProblemBody {
     default:
       return problemBody(502, 'ai-error', error.message);
   }
-}
-
-/**
- * Who the push services may write to about this instance (VAPID's subject, RFC 8292): its address
- * when it is https, else a mail address nobody reads.
- */
-function pushSubject(appUrl: string): string {
-  return appUrl.startsWith('https://') ? new URL(appUrl).origin : 'mailto:vtiger-reader@localhost.invalid';
 }
 
 function isApiPath(url: string): boolean {
@@ -209,15 +201,9 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     ...(opts.ai?.hostAllowed ? { hostAllowed: opts.ai.hostAllowed } : {}),
   });
   aiRoutes(app, { ai, tickets, settings });
-  const push = new PushSender(pool, new SecretBox(crmConfig.encryptionKey), {
-    subject: pushSubject(appUrl),
-    ...(opts.push?.send ? { send: opts.push.send } : {}),
-    log: (message) => app.log.warn(message),
-  });
-  const notifications = new NotificationsService(pool, tickets, lists, push, {
+  const notifications = new NotificationsService(pool, tickets, lists, opts.notifier ?? logNotifier(app.log), {
     clock: opts.clock ?? systemClock,
     log: app.log,
-    ...(opts.push?.hostAllowed ? { hostAllowed: opts.push.hostAllowed } : {}),
   });
   app.decorate('notifications', notifications);
   app.addHook('onClose', async () => notifications.stop());

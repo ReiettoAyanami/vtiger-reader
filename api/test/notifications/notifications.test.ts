@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { READ_OPERATIONS } from '../../src/modules/crm/webservice.js';
+import { LOCAL_USER_ID } from '../../src/modules/profile/profile.js';
 import { expectProblem, makeApi, type Api } from '../support/api.js';
 import { rawRows } from '../support/db.js';
 import { FakeCrm } from '../support/fake-crm.js';
-import { browserSubscription, FakePush } from '../support/fake-push.js';
-import { LOCAL_USER_ID } from '../../src/modules/profile/profile.js';
+import { FakeNotifier } from '../support/fake-notifier.js';
 
 const MARIO = { username: 'mario.rossi', accessKey: 'AbCdEf0123456789' }; // CRM user 19x5
 /** "Now" for these tests: after the CRM's tickets. */
@@ -60,17 +60,18 @@ function ticket(n: number, createdtime: string, more: Record<string, string> = {
 
 let api: Api;
 let crm: FakeCrm;
-let push: FakePush;
+let desktop: FakeNotifier;
 let lists: Record<string, number>;
 
-/** One round of checks, as the server runs every 2 minutes. */
+/** One round of checks, as the app runs every 2 minutes. */
 const check = () => api.app.notifications.checkAll();
 const arrive = (...rows: Array<Record<string, string>>) => crm.tables.get('HelpDesk')!.push(...rows);
+const shown = () => desktop.shown.map((s) => s.message);
 
 beforeEach(async () => {
   crm = companyCrm();
-  push = new FakePush();
-  api = await makeApi({ crm, push, clock: () => new Date(NOW) });
+  desktop = new FakeNotifier();
+  api = await makeApi({ crm, notifier: desktop, clock: () => new Date(NOW) });
   expect((await api.put('/api/crm/link', { url: crm.url, ...MARIO })).status).toBe(200);
   lists = Object.fromEntries(((await api.get('/api/lists')).body as Array<{ id: number; name: string }>).map((l) => [l.name, l.id]));
 });
@@ -81,53 +82,48 @@ afterEach(async () => {
 });
 
 describe('settings', () => {
-  it('on from the start, for "my open tickets" and "unassigned"; no device yet', async () => {
+  it('on from the start, for "my open tickets" and "unassigned"', async () => {
     expect((await api.get('/api/notifications/settings')).body).toEqual({
       enabled: true,
       lists: [lists['My open tickets'], lists['Unassigned']],
-      devices: 0,
     });
   });
 
   it('the user picks the lists and turns them off; a list that does not exist is not found', async () => {
     const res = await api.put('/api/notifications/settings', { enabled: false, lists: [lists['All tickets']] });
-    expect(res.body).toEqual({ enabled: false, lists: [lists['All tickets']], devices: 0 });
+    expect(res.body).toEqual({ enabled: false, lists: [lists['All tickets']] });
     expectProblem(await api.put('/api/notifications/settings', { enabled: true, lists: [9999] }), 404, 'not-found');
     expect((await api.get('/api/notifications/settings')).body.lists).toEqual([lists['All tickets']]);
   });
 });
 
 describe('the checks', () => {
-  it('the first only looks: nothing that was already there is sent', async () => {
-    await api.put('/api/push/subscription', browserSubscription());
+  it('the first only looks: nothing that was already there is shown', async () => {
     await check();
-    expect(push.sent).toEqual([]);
+    expect(shown()).toEqual([]);
     expect(await rawRows('SELECT watermark FROM notification_state')).toEqual([{ watermark: new Date('2026-11-03T11:00:00Z') }]);
   });
 
-  it('a new ticket of mine: a push to each browser, its number and title, opening it; once', async () => {
-    const phone = browserSubscription();
-    const laptop = browserSubscription();
-    await api.put('/api/push/subscription', phone);
-    await api.put('/api/push/subscription', laptop);
+  it('a new ticket of mine: a notification on the desktop, its number and title, opening it; once', async () => {
     await check();
     arrive(ticket(3, '2026-11-04 09:00:00', { ticket_title: 'Stampante ferma' }));
     await check();
-    expect(push.sent.map((s) => s.endpoint)).toEqual([phone.endpoint, laptop.endpoint]);
-    expect(push.sent[0]!.message).toEqual({
-      title: 'TK-0003 Stampante ferma',
-      body: 'Mario Bianchi · High · Hardware',
-      url: '/tickets/17x3',
-      tag: `tickets-${LOCAL_USER_ID}`,
-    });
-    // VAPID: who the push services may write to (an http instance: the administrator's mail).
-    expect(push.sent[0]!.subject).toMatch(/^mailto:/);
+    expect(desktop.shown).toEqual([
+      {
+        userId: LOCAL_USER_ID,
+        message: {
+          title: 'TK-0003 Stampante ferma',
+          body: 'Mario Bianchi · High · Hardware',
+          url: '/tickets/17x3',
+          tag: `tickets-${LOCAL_USER_ID}`,
+        },
+      },
+    ]);
     await check();
-    expect(push.sent).toHaveLength(2);
+    expect(desktop.shown).toHaveLength(1);
   });
 
-  it('only the tickets in the lists picked: not a colleague\'s, not a closed one', async () => {
-    await api.put('/api/push/subscription', browserSubscription());
+  it("only the tickets in the lists picked: not a colleague's, not a closed one", async () => {
     await check();
     arrive(
       ticket(3, '2026-11-04 09:00:00'),
@@ -136,56 +132,40 @@ describe('the checks', () => {
       ticket(6, '2026-11-04 09:03:00', { ticketstatus: 'Closed' }),
     );
     await check();
-    expect(push.sent.map((s) => s.message)).toEqual([
+    expect(shown()).toEqual([
       { title: '2 new tickets', body: 'TK-0004 Ticket 4\nTK-0003 Ticket 3', url: '/', tag: expect.stringMatching(/^tickets-/) },
     ]);
   });
 
   it('turned off: no check; turned on again: from then on, not what came meanwhile', async () => {
-    await api.put('/api/push/subscription', browserSubscription());
     await check();
     await api.put('/api/notifications/settings', { enabled: false, lists: [lists['My open tickets']] });
     arrive(ticket(3, '2026-11-04 09:00:00'));
     await check();
     await api.put('/api/notifications/settings', { enabled: true, lists: [lists['My open tickets']] });
     await check();
-    expect(push.sent).toEqual([]);
+    expect(shown()).toEqual([]);
     arrive(ticket(4, '2026-11-04 10:00:00'));
     await check();
-    expect(push.sent.map((s) => s.message.title)).toEqual(['TK-0004 Ticket 4']);
+    expect(shown().map((m) => m.title)).toEqual(['TK-0004 Ticket 4']);
   });
 
   it('no list picked: nothing', async () => {
-    await api.put('/api/push/subscription', browserSubscription());
     await api.put('/api/notifications/settings', { enabled: true, lists: [] });
     await check();
     arrive(ticket(3, '2026-11-04 09:00:00'));
     await check();
-    expect(push.sent).toEqual([]);
+    expect(shown()).toEqual([]);
   });
 
   it('a CRM down: the check tries again next time', async () => {
-    await api.put('/api/push/subscription', browserSubscription());
     await check();
     arrive(ticket(3, '2026-11-04 09:00:00'));
     crm.down = true;
     await check();
     crm.down = false;
     await check();
-    expect(push.sent).toHaveLength(1);
-  });
-
-  it('a browser the push service no longer knows goes', async () => {
-    const gone = browserSubscription();
-    const kept = browserSubscription();
-    await api.put('/api/push/subscription', gone);
-    await api.put('/api/push/subscription', kept);
-    push.gone.add(gone.endpoint);
-    await check();
-    arrive(ticket(3, '2026-11-04 09:00:00'));
-    await check();
-    expect((await rawRows('SELECT endpoint FROM push_subscription')).map((r) => r.endpoint)).toEqual([kept.endpoint]);
-    expect((await api.get('/api/notifications/settings')).body.devices).toBe(1);
+    expect(shown()).toHaveLength(1);
   });
 
   it('an open page hears of new tickets on its stream', async () => {
@@ -226,38 +206,11 @@ describe('the bell', () => {
   });
 });
 
-describe('browsers', () => {
-  it("the instance's own VAPID key, the same every time and after a restart", async () => {
-    const key = (await api.get('/api/push/key')).body.publicKey as string;
-    expect(Buffer.from(key, 'base64url')).toHaveLength(65);
-    expect((await api.get('/api/push/key')).body.publicKey).toBe(key);
-    const again = await makeApi({ crm });
-    expect((await again.get('/api/push/key')).body.publicKey).toBe(key);
-    await again.app.close();
-    // The private key is sealed.
-    const [row] = await rawRows('SELECT private_key_sealed FROM push_vapid');
-    expect(String(row!.private_key_sealed)).toMatch(/^v1\./);
-  });
-
-  it('a browser subscribes once (again: the same row), and unsubscribes', async () => {
-    const sub = browserSubscription();
-    expect((await api.put('/api/push/subscription', sub)).status).toBe(204);
-    expect((await api.put('/api/push/subscription', sub)).status).toBe(204);
-    expect((await api.get('/api/notifications/settings')).body.devices).toBe(1);
-    expect((await api.post('/api/push/test')).body).toEqual({ sent: 1 });
-    expect(push.sent[0]!.message).toMatchObject({ title: 'vtiger-reader', url: '/' });
-    expect((await api.post('/api/push/subscription/delete', { endpoint: sub.endpoint })).status).toBe(204);
-    expect((await api.get('/api/notifications/settings')).body.devices).toBe(0);
-  });
-
-  it('a push service is a public https address; the keys are real ones', async () => {
-    const sub = browserSubscription();
-    expectProblem(await api.put('/api/push/subscription', { ...sub, endpoint: 'http://push.example.com/x' }), 400, 'validation');
-    expectProblem(await api.put('/api/push/subscription', { ...sub, endpoint: 'not an address' }), 400, 'validation');
-    expectProblem(await api.put('/api/push/subscription', { ...sub, keys: { ...sub.keys, p256dh: 'AAAA' } }), 400, 'validation');
-    expectProblem(await api.put('/api/push/subscription', { ...sub, keys: { ...sub.keys, auth: 'AAAA' } }), 400, 'validation');
-    const lan = await makeApi({ crm, hostAllowed: async (host) => host !== '192.168.1.5' });
-    expectProblem(await lan.put('/api/push/subscription', { ...sub, endpoint: 'https://192.168.1.5/push' }), 400, 'validation');
-    await lan.app.close();
+describe('a test notification', () => {
+  it('shown on the desktop, opening the tickets; says when the desktop did not show it', async () => {
+    expect((await api.post('/api/notifications/test')).body).toEqual({ shown: true });
+    expect(shown()).toEqual([{ title: 'vtiger-reader', body: 'Notifications work on this PC.', url: '/', tag: `test-${LOCAL_USER_ID}` }]);
+    desktop.works = false;
+    expect((await api.post('/api/notifications/test')).body).toEqual({ shown: false });
   });
 });

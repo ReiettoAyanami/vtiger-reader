@@ -1,4 +1,3 @@
-import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -7,7 +6,6 @@ import { of } from 'rxjs';
 import { ListsApi } from '../../data/lists-api';
 import { NotificationSettings as Saved } from '../../data/notifications';
 import { NotificationsApi } from '../../data/notifications-api';
-import { PushState, PushSubscriptions } from '../../notifications/push-subscriptions';
 import { NotificationSettings } from './notification-settings';
 
 const LISTS = [
@@ -17,22 +15,15 @@ const LISTS = [
 ];
 
 describe('NotificationSettings', () => {
-  async function render(saved: Saved, pushState: PushState = 'off') {
+  async function render(saved: Saved, shown = true) {
     const updates: Array<[boolean, number[]]> = [];
-    const state = signal<PushState>(pushState);
-    const push = {
-      state,
-      refresh: vi.fn(async () => state()),
-      enable: vi.fn(async () => (state.set('on'), 'on' as PushState)),
-      disable: vi.fn(async () => (state.set('off'), 'off' as PushState)),
-    };
-    const sent: number[] = [];
+    const snacks: string[] = [];
+    let tests = 0;
     TestBed.configureTestingModule({
       imports: [NotificationSettings],
       providers: [
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
-        { provide: MatSnackBar, useValue: { open: () => undefined } },
-        { provide: PushSubscriptions, useValue: push },
+        { provide: MatSnackBar, useValue: { open: (message: string) => snacks.push(message) } },
         { provide: ListsApi, useValue: { lists: () => of(LISTS) } },
         {
           provide: NotificationsApi,
@@ -40,9 +31,9 @@ describe('NotificationSettings', () => {
             settings: () => of(saved),
             updateSettings: (enabled: boolean, lists: number[]) => {
               updates.push([enabled, lists]);
-              return of({ enabled, lists, devices: saved.devices });
+              return of({ enabled, lists });
             },
-            test: () => (sent.push(1), of(1)),
+            test: () => (tests++, of(shown)),
           },
         },
       ],
@@ -59,11 +50,11 @@ describe('NotificationSettings', () => {
       await fixture.whenStable();
       fixture.detectChanges();
     };
-    return { fixture, element, button, updates, push, sent, settle };
+    return { element, button, updates, snacks, settle, tests: () => tests };
   }
 
   it('the lists, the notifying ones checked; Save only after a change, with the lists in order', async () => {
-    const page = await render({ enabled: true, lists: [2], devices: 0 });
+    const page = await render({ enabled: true, lists: [2] });
     const boxes = [...page.element.querySelectorAll<HTMLInputElement>('mat-checkbox input')];
     expect(boxes.map((b) => b.checked)).toEqual([false, true, false]);
     expect(page.button('Save')!.disabled).toBe(true);
@@ -75,32 +66,23 @@ describe('NotificationSettings', () => {
     expect(page.updates).toEqual([[true, [1, 2, 3]]]);
   });
 
-  it('turned off: the lists cannot be picked, push cannot be turned on', async () => {
-    const page = await render({ enabled: false, lists: [1], devices: 0 });
+  it('turned off: the lists cannot be picked', async () => {
+    const page = await render({ enabled: false, lists: [1] });
     const boxes = [...page.element.querySelectorAll<HTMLInputElement>('mat-checkbox input')];
     expect(boxes.every((b) => b.disabled)).toBe(true);
-    expect(page.button('Turn on here')!.disabled).toBe(true);
   });
 
-  it('this browser: on, then a test, then off', async () => {
-    const page = await render({ enabled: true, lists: [1], devices: 0 });
-    expect(page.push.refresh).toHaveBeenCalled();
-    page.button('Turn on here')!.click();
-    await page.settle();
-    expect(page.push.enable).toHaveBeenCalled();
+  it('a test on this PC: says whether it was shown', async () => {
+    const page = await render({ enabled: true, lists: [1] });
     page.button('Send a test')!.click();
     await page.settle();
-    expect(page.sent).toEqual([1]);
-    page.button('Turn off here')!.click();
-    await page.settle();
-    expect(page.push.disable).toHaveBeenCalled();
-    expect(page.button('Turn on here')).toBeTruthy();
-  });
+    expect(page.tests()).toBe(1);
+    expect(page.snacks).toEqual(['Sent: it should be on the screen now']);
 
-  it('blocked by the browser: says where to allow them, no button', async () => {
-    const page = await render({ enabled: true, lists: [1], devices: 1 }, 'blocked');
-    expect(page.element.textContent).toContain('blocked for this site');
-    expect(page.button('Turn on here')).toBeUndefined();
-    expect(page.element.textContent).toContain('1 browser gets your notifications');
+    TestBed.resetTestingModule();
+    const refused = await render({ enabled: true, lists: [1] }, false);
+    refused.button('Send a test')!.click();
+    await refused.settle();
+    expect(refused.snacks[0]).toContain('Not shown');
   });
 });

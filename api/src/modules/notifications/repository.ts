@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import type { Queryable } from '../../db/pool.js';
 import { ownerOf, type Owner } from '../../shared/owner.js';
@@ -10,12 +9,6 @@ export interface NotificationState {
   watermark: string | null;
   /** The CRM time of the newest ticket the bell showed when last opened; null: never opened. */
   bellSeenAt: string | null;
-}
-
-export interface PushSubscriptionRow {
-  endpoint: string;
-  p256dh: string;
-  auth: string;
 }
 
 /** A user the checks look for new tickets for: linked to a CRM, not banned, notifications on. */
@@ -73,59 +66,4 @@ export async function listWatchedUsers(db: Queryable): Promise<WatchedUser[]> {
       ORDER BY u.id`,
   );
   return rows.map((r) => ({ owner: ownerOf(Number(r.id)) }));
-}
-
-/** The sha256 of an endpoint: its key in the table (an endpoint is too long for a unique index). */
-export function endpointHash(endpoint: string): string {
-  return createHash('sha256').update(endpoint, 'utf8').digest('hex');
-}
-
-export async function listSubscriptions(db: Queryable, owner: Owner): Promise<PushSubscriptionRow[]> {
-  const [rows] = await db.query<RowDataPacket[]>('SELECT endpoint, p256dh, auth FROM push_subscription WHERE user_id = ? ORDER BY id', [owner.userId]);
-  return rows.map((r) => ({ endpoint: String(r.endpoint), p256dh: String(r.p256dh), auth: String(r.auth) }));
-}
-
-export async function countSubscriptions(db: Queryable, owner: Owner): Promise<number> {
-  const [rows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) AS n FROM push_subscription WHERE user_id = ?', [owner.userId]);
-  return Number(rows[0]?.n ?? 0);
-}
-
-/**
- * Saves a browser's subscription for the owner. An endpoint is one browser's: when another user
- * had it (they signed out, the owner signed in on the same browser), it moves to the owner, so the
- * browser never shows the other user's tickets.
- */
-export async function saveSubscription(db: Queryable, owner: Owner, sub: PushSubscriptionRow): Promise<void> {
-  await db.query(
-    `INSERT INTO push_subscription (user_id, endpoint, endpoint_hash, p256dh, auth) VALUES (?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), endpoint = VALUES(endpoint), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
-    [owner.userId, sub.endpoint, endpointHash(sub.endpoint), sub.p256dh, sub.auth],
-  );
-}
-
-/** The owner's subscription of this endpoint goes (another user's is not touched). */
-export async function deleteSubscription(db: Queryable, owner: Owner, endpoint: string): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>('DELETE FROM push_subscription WHERE user_id = ? AND endpoint_hash = ?', [
-    owner.userId,
-    endpointHash(endpoint),
-  ]);
-  return result.affectedRows > 0;
-}
-
-/** The instance's VAPID keys, or null before they are made. */
-export async function findVapid(db: Queryable): Promise<{ publicKey: string; privateKeySealed: string } | null> {
-  const [rows] = await db.query<RowDataPacket[]>('SELECT public_key, private_key_sealed FROM push_vapid WHERE id = 1');
-  const row = rows[0];
-  return row ? { publicKey: String(row.public_key), privateKeySealed: String(row.private_key_sealed) } : null;
-}
-
-/** Saves the instance's VAPID keys, unless another start saved its own first (theirs stay). */
-export async function insertVapid(db: Queryable, publicKey: string, privateKeySealed: string): Promise<void> {
-  await db.query('INSERT IGNORE INTO push_vapid (id, public_key, private_key_sealed) VALUES (1, ?, ?)', [publicKey, privateKeySealed]);
-}
-
-/** The instance's VAPID keys go (they no longer open: ENCRYPTION_KEY changed), with every subscription made with them. */
-export async function resetVapid(db: Queryable): Promise<void> {
-  await db.query('DELETE FROM push_subscription');
-  await db.query('DELETE FROM push_vapid');
 }

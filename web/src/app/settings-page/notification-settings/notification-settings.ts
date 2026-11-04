@@ -9,7 +9,6 @@ import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../../data/api-error';
 import { ListsApi } from '../../data/lists-api';
 import { NotificationsApi } from '../../data/notifications-api';
-import { PushState, PushSubscriptions } from '../../notifications/push-subscriptions';
 
 /** What a failed request says, short. */
 function reason(error: unknown): string {
@@ -20,9 +19,9 @@ function reason(error: unknown): string {
 }
 
 /**
- * The user's notifications (plan 5.2, 5.3): on or off, which of their lists a new ticket notifies
- * them from, and this browser's push (on, off, a test). The bell and the open pages follow the same
- * choice; push only reaches the browsers turned on here.
+ * The profile's notifications (plan 5.2, 7.2): on or off, which of the lists a new ticket notifies
+ * from, and a test on this PC. They are the system's own notifications, shown while the app runs
+ * (also from the tray); the bell and the open app follow the same choice.
  */
 @Component({
   selector: 'app-notification-settings',
@@ -34,7 +33,6 @@ export class NotificationSettings {
   private readonly api = inject(NotificationsApi);
   private readonly listsApi = inject(ListsApi);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly push = inject(PushSubscriptions);
 
   protected readonly settings = rxResource({ stream: () => this.api.settings() });
   protected readonly lists = rxResource({ stream: () => this.listsApi.lists() });
@@ -44,7 +42,7 @@ export class NotificationSettings {
   protected readonly picked = signal<ReadonlySet<number>>(new Set());
 
   protected readonly saving = signal(false);
-  protected readonly pushBusy = signal(false);
+  protected readonly testing = signal(false);
 
   protected readonly failure = computed(() => {
     const error = this.settings.error() ?? this.lists.error();
@@ -70,7 +68,6 @@ export class NotificationSettings {
       this.enabled.set(enabled);
       this.picked.set(new Set(lists));
     });
-    void this.push.refresh();
   }
 
   protected toggle(id: number, checked: boolean): void {
@@ -98,52 +95,22 @@ export class NotificationSettings {
     });
   }
 
-  protected async turnPush(on: boolean): Promise<void> {
-    if (this.pushBusy()) return;
-    this.pushBusy.set(true);
-    try {
-      const state = on ? await this.push.enable() : await this.push.disable();
-      if (on && state === 'blocked') {
-        this.snackBar.open('The browser blocked notifications for this site', 'OK');
-      }
-      this.settings.reload();
-    } catch (error) {
-      this.snackBar.open(`Could not turn them on: ${reason(error)}`, 'OK');
-    } finally {
-      this.pushBusy.set(false);
-    }
-  }
-
   protected async test(): Promise<void> {
-    if (this.pushBusy()) return;
-    this.pushBusy.set(true);
+    if (this.testing()) return;
+    this.testing.set(true);
     try {
-      const sent = await firstValueFrom(this.api.test());
+      const shown = await firstValueFrom(this.api.test());
       this.snackBar.open(
-        sent ? `Sent to ${sent} ${sent === 1 ? 'device' : 'devices'}` : 'No device got it',
-        undefined,
-        { duration: 4000 },
+        shown
+          ? 'Sent: it should be on the screen now'
+          : 'Not shown: this is not the desktop app, or Windows has notifications off for it',
+        shown ? undefined : 'OK',
+        shown ? { duration: 4000 } : {},
       );
-      this.settings.reload();
     } catch (error) {
       this.snackBar.open(`Could not send: ${reason(error)}`, 'OK');
     } finally {
-      this.pushBusy.set(false);
-    }
-  }
-
-  protected stateText(state: PushState): string {
-    switch (state) {
-      case 'on':
-        return 'This browser shows them, even with the app closed.';
-      case 'off':
-        return 'This browser does not show them when the app is closed.';
-      case 'blocked':
-        return "Notifications are blocked for this site: allow them in the browser's site settings.";
-      case 'unsupported':
-        return 'This browser cannot show push notifications (they need https, or localhost).';
-      default:
-        return '…';
+      this.testing.set(false);
     }
   }
 }

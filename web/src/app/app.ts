@@ -7,7 +7,6 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
-import { PushSubscriptions } from './notifications/push-subscriptions';
 import { Sidebar } from './sidebar/sidebar';
 import { Appearance } from './ui/appearance';
 import { Bell } from './ui/bell/bell';
@@ -51,11 +50,6 @@ export class App {
   protected readonly title = toSignal(this.navigated$.pipe(map(() => routeTitle(this.router.routerState.snapshot.root))), {
     initialValue: '',
   });
-
-  constructor() {
-    // A notification clicked while the app is open opens its ticket here, without reloading.
-    inject(PushSubscriptions).listen();
-  }
 
   /**
    * The menu button opens the drawer. Its origin goes with it: closing gives the focus back to the
