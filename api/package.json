@@ -32,7 +32,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "@types/luxon": "3.7.5",
+    "@types/luxon": "3.7.6",
     "@types/node": "22.20.4",
     "electron": "45.2.3",
     "electron-builder": "26.18.0",
