@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- vtiger reader's icon: a ticket on the app's violet. Source of icon.png and tray*.png (scripts/icons.mjs). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <path d="M60 80 h136 a12 12 0 0 1 12 12 v18 a18 18 0 0 0 0 36 v18 a12 12 0 0 1 -12 12 h-136 a12 12 0 0 1 -12 -12 v-18 a18 18 0 0 0 0 -36 v-18 a12 12 0 0 1 12 -12 z" fill="#ffffff"/>
+  <path d="M162 92 v72" stroke="#8b5cf6" stroke-width="6" stroke-dasharray="9 9" stroke-linecap="round"/>
+  <path d="M76 106 h58 M76 128 h44 M76 150 h52" stroke="#5b21b6" stroke-width="10" stroke-linecap="round"/>
+</svg>

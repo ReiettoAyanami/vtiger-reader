@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { ListsApi } from '../../data/lists-api';
 import { NotificationSettings as Saved } from '../../data/notifications';
 import { NotificationsApi } from '../../data/notifications-api';
+import { VTIGER_DESKTOP, VtigerDesktop } from '../../desktop/desktop-bridge';
 import { NotificationSettings } from './notification-settings';
 
 const LISTS = [
@@ -15,7 +16,7 @@ const LISTS = [
 ];
 
 describe('NotificationSettings', () => {
-  async function render(saved: Saved, shown = true) {
+  async function render(saved: Saved, shown = true, desktop: VtigerDesktop | null = null) {
     const updates: Array<[boolean, number[]]> = [];
     const snacks: string[] = [];
     let tests = 0;
@@ -25,6 +26,7 @@ describe('NotificationSettings', () => {
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: MatSnackBar, useValue: { open: (message: string) => snacks.push(message) } },
         { provide: ListsApi, useValue: { lists: () => of(LISTS) } },
+        { provide: VTIGER_DESKTOP, useValue: desktop },
         {
           provide: NotificationsApi,
           useValue: {
@@ -84,5 +86,30 @@ describe('NotificationSettings', () => {
     refused.button('Send a test')!.click();
     await refused.settle();
     expect(refused.snacks[0]).toContain('Not shown');
+  });
+
+  it('start with Windows: only in the desktop app, read and set through it', async () => {
+    const plain = await render({ enabled: true, lists: [1] });
+    expect(plain.element.textContent).not.toContain('Start with Windows');
+
+    TestBed.resetTestingModule();
+    let atLogin = false;
+    const desktop: VtigerDesktop = {
+      onOpen: () => undefined,
+      getStartAtLogin: async () => atLogin,
+      setStartAtLogin: async (on) => (atLogin = on),
+    };
+    const page = await render({ enabled: true, lists: [1] }, true, desktop);
+    await page.settle();
+    expect(page.element.textContent).toContain('Start with Windows');
+    const toggle = [...page.element.querySelectorAll('mat-slide-toggle')]
+      .find((t) => t.textContent?.includes('Start with Windows'))!
+      .querySelector<HTMLButtonElement>('button')!;
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    toggle.click();
+    await page.settle();
+    await page.settle();
+    expect(atLogin).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
   });
 });

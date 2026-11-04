@@ -9,6 +9,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../../data/api-error';
 import { ListsApi } from '../../data/lists-api';
 import { NotificationsApi } from '../../data/notifications-api';
+import { DesktopBridge } from '../../desktop/desktop-bridge';
 
 /** What a failed request says, short. */
 function reason(error: unknown): string {
@@ -33,6 +34,7 @@ export class NotificationSettings {
   private readonly api = inject(NotificationsApi);
   private readonly listsApi = inject(ListsApi);
   private readonly snackBar = inject(MatSnackBar);
+  protected readonly desktop = inject(DesktopBridge);
 
   protected readonly settings = rxResource({ stream: () => this.api.settings() });
   protected readonly lists = rxResource({ stream: () => this.listsApi.lists() });
@@ -43,6 +45,8 @@ export class NotificationSettings {
 
   protected readonly saving = signal(false);
   protected readonly testing = signal(false);
+  /** The app starts with Windows, in the tray (desktop app only); null until read. */
+  protected readonly atLogin = signal<boolean | null>(null);
 
   protected readonly failure = computed(() => {
     const error = this.settings.error() ?? this.lists.error();
@@ -68,6 +72,20 @@ export class NotificationSettings {
       this.enabled.set(enabled);
       this.picked.set(new Set(lists));
     });
+    if (this.desktop.available) {
+      void this.desktop.startAtLogin().then(
+        (on) => this.atLogin.set(on),
+        () => this.atLogin.set(false),
+      );
+    }
+  }
+
+  protected async setAtLogin(on: boolean): Promise<void> {
+    try {
+      this.atLogin.set(await this.desktop.setStartAtLogin(on));
+    } catch (error) {
+      this.snackBar.open(`Could not change it: ${reason(error)}`, 'OK');
+    }
   }
 
   protected toggle(id: number, checked: boolean): void {

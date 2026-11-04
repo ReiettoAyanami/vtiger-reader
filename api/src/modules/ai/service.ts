@@ -56,6 +56,11 @@ export interface AiOptions {
   claudeCode?: string[];
   fetch?: typeof fetch;
   hostAllowed?: (host: string) => Promise<boolean>;
+  /**
+   * The desktop app (plan 7.4): any address, http too (a local Ollama). Its only user is the PC's
+   * owner, who cannot reach through it anything they could not reach anyway.
+   */
+  anyAddress?: boolean;
 }
 
 /** The key's context: the table and the user, so a sealed key copied to another user does not open. */
@@ -170,6 +175,7 @@ export class AiService {
 
   /** https on a public host; or any scheme on a host the instance lists in AI_PRIVATE_HOSTS. */
   private async reachable(baseUrl: string): Promise<boolean> {
+    if (this.options.anyAddress) return true;
     const url = new URL(baseUrl);
     if (this.privateHosts.has(url.host.toLowerCase()) || this.privateHosts.has(url.hostname.toLowerCase())) return true;
     return url.protocol === 'https:' && (await this.hostAllowed(url.hostname));

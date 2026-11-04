@@ -2,6 +2,8 @@
 node_modules/
 dist/
 .angular/
+# The desktop app's installers (electron-builder)
+api/release/
 
 # Local environment and secrets (keep only the template)
 .env

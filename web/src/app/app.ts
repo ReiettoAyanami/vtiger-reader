@@ -7,6 +7,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
+import { DesktopBridge } from './desktop/desktop-bridge';
 import { Sidebar } from './sidebar/sidebar';
 import { Appearance } from './ui/appearance';
 import { Bell } from './ui/bell/bell';
@@ -50,6 +51,11 @@ export class App {
   protected readonly title = toSignal(this.navigated$.pipe(map(() => routeTitle(this.router.routerState.snapshot.root))), {
     initialValue: '',
   });
+
+  constructor() {
+    // The desktop app: a notification clicked while the window is open opens its ticket here.
+    inject(DesktopBridge).listen();
+  }
 
   /**
    * The menu button opens the drawer. Its origin goes with it: closing gives the focus back to the

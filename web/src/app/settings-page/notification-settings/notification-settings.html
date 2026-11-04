@@ -26,6 +26,13 @@
       }
     </div>
 
+    @if (desktop.available && atLogin() !== null) {
+      <mat-slide-toggle [checked]="atLogin() === true" (change)="setAtLogin($event.checked)">
+        Start with Windows
+      </mat-slide-toggle>
+      <p class="note">In the tray, without opening the window: new tickets are told from the start.</p>
+    }
+
     <div class="row-end">
       <button mat-button type="button" [disabled]="testing()" (click)="test()">Send a test</button>
       <button mat-flat-button type="button" [disabled]="saving() || !dirty()" (click)="save()">

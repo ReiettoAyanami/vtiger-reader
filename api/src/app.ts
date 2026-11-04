@@ -26,6 +26,7 @@ import {
   type ProblemBody,
   type ProblemFieldError,
 } from './shared/errors.js';
+import { desktopLockHook } from './shared/desktop-lock.js';
 import { SecretBox } from './shared/secret-box.js';
 import { securityHeadersHook } from './shared/security-headers.js';
 import { systemClock, type Clock } from './shared/time.js';
@@ -43,11 +44,16 @@ export interface BuildAppOptions {
   /** The address the app is opened at, over the environment's APP_URL: the security headers (HSTS on https). */
   appUrl?: string;
   /** The AI providers' HTTP client and host check (tests: fake providers). */
-  ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[]; claudeCode?: string[] };
+  ai?: { fetch?: typeof fetch; hostAllowed?: (host: string) => Promise<boolean>; privateHosts?: string[]; claudeCode?: string[]; anyAddress?: boolean };
   /** The CRM link over the environment's (tests: a fake CRM's fetch, its host allowed, another key). */
   crm?: Partial<CrmConfig> & { fetch?: Fetch; hostAllowed?: (host: string) => Promise<boolean> };
   /** Where the notifications go (plan 7.2): the desktop's; a log line when omitted (the bare server). */
   notifier?: Notifier;
+  /**
+   * The desktop app's launch secret (plan 7.4): every request must carry it in its cookie and come
+   * from this PC (shared/desktop-lock.ts). Unset for the bare dev server and the tests.
+   */
+  desktopToken?: string;
 }
 
 declare module 'fastify' {
@@ -118,6 +124,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const appUrl = opts.appUrl ?? loadConfig().appUrl;
   // What every answer tells the browser: before the routes, the 404 handler and the web build.
   securityHeadersHook(app, appUrl);
+  // The desktop app: only its own window gets an answer (plan 7.4).
+  if (opts.desktopToken !== undefined) desktopLockHook(app, opts.desktopToken);
 
   // Every error leaves as Problem Details.
   app.setErrorHandler((error: FastifyError, request, reply) => {
@@ -193,6 +201,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     claudeCode: opts.ai?.claudeCode ?? loadConfig().ai.claudeCode,
     ...(opts.ai?.fetch ? { fetch: opts.ai.fetch } : {}),
     ...(opts.ai?.hostAllowed ? { hostAllowed: opts.ai.hostAllowed } : {}),
+    ...(opts.ai?.anyAddress ? { anyAddress: true } : {}),
   });
   aiRoutes(app, { ai, tickets, settings });
   const notifications = new NotificationsService(db, tickets, lists, opts.notifier ?? logNotifier(app.log), {

@@ -212,3 +212,48 @@ describe('security headers (lenzi, 2026-10-03: "si")', () => {
     }
   });
 });
+
+describe('the desktop lock (plan 7.4)', () => {
+  const TOKEN = 'a'.repeat(43);
+  let dir: string;
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'st-web-'));
+    await writeFile(join(dir, 'index.html'), '<!doctype html><html><body><app-root></app-root></body></html>');
+    app = await buildApp({ db: testDb(), clock: fixedClock, webDist: dir, desktopToken: TOKEN });
+  });
+  afterAll(async () => {
+    await app.close();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  const ask = (url: string, headers: Record<string, string>) => app.inject({ method: 'GET', url, headers });
+
+  it('the window (its cookie, this PC as the host) gets the app and the API', async () => {
+    const cookie = `other=1; vtiger-reader-desktop=${TOKEN}`;
+    expect((await ask('/api/health', { host: '127.0.0.1:52411', cookie })).statusCode).toBe(200);
+    expect((await ask('/', { host: 'localhost:52411', cookie })).statusCode).toBe(200);
+  });
+
+  it('anything else gets a 403, the web build too: no cookie, a wrong one, another host', async () => {
+    const attempts: Array<Record<string, string>> = [
+      { host: '127.0.0.1:52411' },
+      { host: '127.0.0.1:52411', cookie: `vtiger-reader-desktop=${'b'.repeat(43)}` },
+      { host: '127.0.0.1:52411', cookie: 'vtiger-reader-desktop=short' },
+      // a site that points its own name at 127.0.0.1 (DNS rebinding)
+      { host: 'evil.example:52411', cookie: `vtiger-reader-desktop=${TOKEN}` },
+    ];
+    for (const headers of attempts) {
+      for (const url of ['/api/settings', '/', '/index.html']) {
+        const res = await ask(url, headers);
+        expect(res.statusCode, `${url} ${JSON.stringify(headers)}`).toBe(403);
+        expect(String(res.headers['content-type'])).toContain('application/problem+json');
+      }
+    }
+  });
+
+  it('a token too short to be a secret is refused when the app is built', async () => {
+    await expect(buildApp({ db: testDb(), desktopToken: 'short' })).rejects.toThrow(/at least 32/);
+  });
+});
