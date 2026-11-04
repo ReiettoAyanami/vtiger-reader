@@ -19,15 +19,15 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
     "@fastify/static": "10.1.10",
-    "better-auth": "1.7.7",
+    "better-auth": "1.7.15",
     "fastify": "5.12.8",
     "luxon": "3.7.2",
-    "mysql2": "3.24.4",
+    "mysql2": "3.24.6",
     "sharp": "0.35.5",
     "web-push": "3.6.7"
   },
   "devDependencies": {
-    "@types/luxon": "3.7.5",
+    "@types/luxon": "3.7.6",
     "@types/node": "22.20.4",
     "@types/web-push": "3.6.4",
     "tsx": "4.23.15",
