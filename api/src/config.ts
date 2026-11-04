@@ -1,14 +1,6 @@
 import { isAbsolute, resolve } from 'node:path';
 import { DEV_ENCRYPTION_KEY, parseEncryptionKey } from './shared/secret-box.js';
 
-export interface DbConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}
-
 /** The CRM link. Each user sets their CRM's address from the interface (lenzi, 2026-11-03). */
 export interface CrmConfig {
   /** ENCRYPTION_KEY: seals the users' CRM access keys (and later their AI keys) in the database. */
@@ -28,13 +20,12 @@ export interface AiConfig {
 }
 
 export interface AppConfig {
-  db: DbConfig;
+  /** DB_FILE: the SQLite database file (plan 7.3); data/vtiger-reader.db under the working directory when unset. */
+  dbFile: string;
   crm: CrmConfig;
   ai: AiConfig;
   /** APP_URL: the address the app is opened at; only its origin is kept. */
   appUrl: string;
-  /** Name of the test database (dev only), `${DB_NAME}_test` when TEST_DB_NAME is unset. */
-  testDbName: string;
   host: string;
   port: number;
   logLevel: string;
@@ -91,7 +82,6 @@ function crmConfig(env: Env): CrmConfig {
 }
 
 export function loadConfig(env: Env = process.env): AppConfig {
-  const database = str(env, 'DB_NAME', 'vtiger_reader');
   return {
     appUrl: appUrlOf(env),
     crm: crmConfig(env),
@@ -102,16 +92,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
         .filter(Boolean),
       claudeCode: (env.CLAUDE_CODE_BIN?.trim() || 'claude').split(/\s+/),
     },
-    db: {
-      host: str(env, 'DB_HOST', 'localhost'),
-      port: int(env, 'DB_PORT', 3306),
-      database,
-      user: str(env, 'DB_USER', 'vtiger'),
-      // Passwords are taken verbatim (no trim).
-      password: env.DB_PASSWORD ?? '',
-    },
-    testDbName: str(env, 'TEST_DB_NAME', `${database}_test`),
-    host: str(env, 'HOST', '0.0.0.0'),
+    dbFile: optionalPath(env, 'DB_FILE') ?? resolve(process.cwd(), 'data', 'vtiger-reader.db'),
+    // This PC only, unless told otherwise: the app holds a CRM account.
+    host: str(env, 'HOST', '127.0.0.1'),
     port: int(env, 'PORT', 3000),
     logLevel: str(env, 'LOG_LEVEL', 'info'),
     webDist: optionalPath(env, 'WEB_DIST'),

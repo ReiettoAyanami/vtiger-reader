@@ -116,6 +116,8 @@ export class ClaudeCodeAdapter implements Adapter {
         },
         stdio: ['pipe', 'pipe', 'pipe'],
         detached: true,
+        // The desktop app on Windows: no console window flashing up for it.
+        windowsHide: true,
       },
     );
     const stop = () => {

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Queryable } from '../../db/pool.js';
+import type { Queryable } from '../../db/database.js';
 import { ownerOf, type Owner } from '../../shared/owner.js';
 import { DEFAULT_SETTINGS } from '../settings/service.js';
 import * as repo from './repository.js';

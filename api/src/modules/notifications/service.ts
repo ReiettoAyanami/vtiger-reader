@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import type { Owner } from '../../shared/owner.js';
 import { parseInstant, type Clock } from '../../shared/time.js';
 import { Semaphore } from '../crm/client.js';
@@ -42,7 +42,7 @@ export class NotificationsService {
   private running: Promise<void> | null = null;
 
   constructor(
-    private readonly pool: Pool,
+    private readonly pool: Database,
     private readonly tickets: TicketsService,
     private readonly lists: ListsService,
     private readonly notifier: Notifier,

@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import { badRequest } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import { isValidTimezone } from '../../shared/time.js';
@@ -35,7 +35,7 @@ function isLanguage(value: string): value is Language {
 
 /** Settings: one row per user; a user without one has the defaults. */
 export class SettingsService {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Database) {}
 
   async get(owner: Owner): Promise<Settings> {
     const row = await repo.findSettings(this.pool, owner);

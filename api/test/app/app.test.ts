@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app.js';
-import { createPool } from '../../src/db/pool.js';
+import { openDatabase } from '../../src/db/database.js';
 import { Api, expectProblem, fixedClock, makeApi } from '../support/api.js';
-import { testDbConfig, testPool } from '../support/db.js';
+import { testDb } from '../support/db.js';
 import { API_LEVEL, VERSION, VERSION_FORMAT } from '../../src/version.js';
 
 let api: Api;
@@ -24,15 +24,15 @@ describe('GET /api/health', () => {
   });
 
   it('503 problem when it does not', async () => {
-    const deadPool = createPool({ ...testDbConfig(), host: '127.0.0.1', port: 1 });
-    const app = await buildApp({ pool: deadPool, clock: fixedClock });
+    const dead = openDatabase(':memory:');
+    dead.close();
+    const app = await buildApp({ db: dead, clock: fixedClock });
     try {
       const res = await new Api(app).get('/api/health');
       expectProblem(res, 503, 'database-unavailable');
       expect(res.body.db).toBe('error');
     } finally {
       await app.close();
-      await deadPool.end();
     }
   });
 });
@@ -203,7 +203,7 @@ describe('security headers (lenzi, 2026-10-03: "si")', () => {
   });
 
   it('HSTS only for an instance opened over https: the browser keeps to https for a year', async () => {
-    const app = await buildApp({ pool: testPool(), clock: fixedClock, appUrl: 'https://tickets.example.invalid' });
+    const app = await buildApp({ db: testDb(), clock: fixedClock, appUrl: 'https://tickets.example.invalid' });
     try {
       const res = await app.inject({ method: 'GET', url: '/api/version' });
       expect(res.headers['strict-transport-security']).toBe('max-age=31536000');

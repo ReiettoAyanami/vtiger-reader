@@ -1,7 +1,7 @@
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyServerOptions } from 'fastify';
 import { loadConfig, type CrmConfig } from './config.js';
-import { createPool, pingDatabase, type Pool } from './db/pool.js';
+import type { Database } from './db/database.js';
 import { CrmClient } from './modules/crm/client.js';
 import { crmLinkRoutes } from './modules/crm/routes.js';
 import { CrmLinkService, crmProblem } from './modules/crm/service.js';
@@ -32,8 +32,8 @@ import { systemClock, type Clock } from './shared/time.js';
 import { API_LEVEL, VERSION } from './version.js';
 
 export interface BuildAppOptions {
-  /** mysql2 pool. When omitted, one is created from the environment and closed with the app. */
-  pool?: Pool;
+  /** The app's SQLite database (plan 7.3), opened and migrated by whoever starts the app. */
+  db: Database;
   /** Fastify logger options (false in tests). */
   logger?: FastifyServerOptions['logger'];
   /** Folder with the Angular build: serves its files and falls back to index.html. */
@@ -100,9 +100,8 @@ function isApiPath(url: string): boolean {
 }
 
 /** Builds the Fastify instance with every module registered. Used by server.ts and by tests. */
-export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInstance> {
-  const ownsPool = opts.pool === undefined;
-  const pool = opts.pool ?? createPool(loadConfig().db);
+export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
+  const { db } = opts;
 
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -115,11 +114,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       },
     },
   });
-  if (ownsPool) {
-    app.addHook('onClose', async () => {
-      await pool.end();
-    });
-  }
 
   const appUrl = opts.appUrl ?? loadConfig().appUrl;
   // What every answer tells the browser: before the routes, the 404 handler and the web build.
@@ -168,13 +162,13 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     credentialsOf: (owner) => links.credentialsOf(owner),
     onLogin: (owner, login) => links.loggedIn(owner, login.crmUserId),
   });
-  const links: CrmLinkService = new CrmLinkService(pool, new SecretBox(crmConfig.encryptionKey), crmClient);
+  const links: CrmLinkService = new CrmLinkService(db, new SecretBox(crmConfig.encryptionKey), crmClient);
 
-  const settings = new SettingsService(pool);
+  const settings = new SettingsService(db);
 
   app.get('/api/health', async (request, reply) => {
     try {
-      await pingDatabase(pool);
+      db.ping();
       return { status: 'ok', db: 'ok' };
     } catch (err) {
       request.log.warn({ err }, 'health check: database unreachable');
@@ -190,18 +184,18 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
 
   settingsRoutes(app, { settings });
   crmLinkRoutes(app, { links });
-  const lists = new ListsService(pool);
+  const lists = new ListsService(db);
   listRoutes(app, { lists });
-  const tickets = new TicketsService(pool, crmClient, lists);
+  const tickets = new TicketsService(db, crmClient, lists);
   ticketRoutes(app, { tickets, lists });
-  const ai = new AiService(pool, new SecretBox(crmConfig.encryptionKey), {
+  const ai = new AiService(db, new SecretBox(crmConfig.encryptionKey), {
     privateHosts: opts.ai?.privateHosts ?? loadConfig().ai.privateHosts,
     claudeCode: opts.ai?.claudeCode ?? loadConfig().ai.claudeCode,
     ...(opts.ai?.fetch ? { fetch: opts.ai.fetch } : {}),
     ...(opts.ai?.hostAllowed ? { hostAllowed: opts.ai.hostAllowed } : {}),
   });
   aiRoutes(app, { ai, tickets, settings });
-  const notifications = new NotificationsService(pool, tickets, lists, opts.notifier ?? logNotifier(app.log), {
+  const notifications = new NotificationsService(db, tickets, lists, opts.notifier ?? logNotifier(app.log), {
     clock: opts.clock ?? systemClock,
     log: app.log,
   });

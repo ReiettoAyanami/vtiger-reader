@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import { badRequest, conflict, notFound } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import { isPublicHost } from '../../shared/public-host.js';
@@ -78,7 +78,7 @@ export class AiService {
   private readonly hostAllowed: (host: string) => Promise<boolean>;
 
   constructor(
-    private readonly pool: Pool,
+    private readonly pool: Database,
     private readonly box: SecretBox,
     private readonly options: AiOptions,
   ) {

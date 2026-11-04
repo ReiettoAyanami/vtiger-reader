@@ -56,28 +56,7 @@ jobs:
   api:
     name: API tests
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: ci-root
-          MYSQL_DATABASE: vtiger_reader_test
-          MYSQL_USER: vtiger
-          MYSQL_PASSWORD: ci-password
-        ports: ['3306:3306']
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pci-root --silent"
-          --health-interval 5s --health-timeout 5s --health-retries 30
-    env:
-      DB_HOST: 127.0.0.1
-      DB_PORT: '3306'
-      DB_NAME: vtiger_reader
-      TEST_DB_NAME: vtiger_reader_test
-      TEST_DB_ROOT_PASSWORD: ci-root
-      DB_USER: vtiger
-      DB_PASSWORD: ci-password
-      APP_URL: http://localhost:4200
-      COOKIE_PREFIX: vtiger-reader-ci
+    # The database is SQLite in memory, one per test file (plan 7.3): no service to start.
     defaults:
       run:
         working-directory: api

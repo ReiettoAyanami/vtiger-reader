@@ -1,13 +1,17 @@
-import { afterAll, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach } from 'vitest';
 import { ensureLocalProfile } from '../src/modules/profile/profile.js';
-import { closeTestPool, resetDatabase, testPool } from './support/db.js';
+import { closeTestDb, prepareTestDb, resetDatabase, testDb } from './support/db.js';
+
+beforeAll(async () => {
+  await prepareTestDb();
+});
 
 beforeEach(async () => {
   await resetDatabase();
-  // The app's one profile, as the first start makes it (server.ts).
-  await ensureLocalProfile(testPool());
+  // The app's one profile, as the first start makes it (src/start.ts).
+  await ensureLocalProfile(testDb());
 });
 
-afterAll(async () => {
-  await closeTestPool();
+afterAll(() => {
+  closeTestDb();
 });

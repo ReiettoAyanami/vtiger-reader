@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import { ProblemError, badRequest } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import type { SecretBox } from '../../shared/secret-box.js';
@@ -29,7 +29,7 @@ function keyContext(owner: Owner): string {
  */
 export class CrmLinkService {
   constructor(
-    private readonly pool: Pool,
+    private readonly pool: Database,
     private readonly box: SecretBox,
     private readonly client: CrmClient,
   ) {}

@@ -101,7 +101,8 @@ describe('the checks', () => {
   it('the first only looks: nothing that was already there is shown', async () => {
     await check();
     expect(shown()).toEqual([]);
-    expect(await rawRows('SELECT watermark FROM notification_state')).toEqual([{ watermark: new Date('2026-11-03T11:00:00Z') }]);
+    // The CRM's own time of its newest ticket (UTC).
+    expect(await rawRows('SELECT watermark FROM notification_state')).toEqual([{ watermark: '2026-11-03 11:00:00' }]);
   });
 
   it('a new ticket of mine: a notification on the desktop, its number and title, opening it; once', async () => {

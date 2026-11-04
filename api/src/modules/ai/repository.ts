@@ -1,5 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import type { Queryable } from '../../db/pool.js';
+import type { Queryable, Row, RunResult } from '../../db/database.js';
 import type { Owner } from '../../shared/owner.js';
 import type { ProviderKind } from './adapter.js';
 
@@ -12,7 +11,7 @@ export interface ProviderRow {
   keyHint: string | null;
 }
 
-function toProvider(r: RowDataPacket): ProviderRow {
+function toProvider(r: Row): ProviderRow {
   return {
     id: Number(r.id),
     kind: r.kind as ProviderKind,
@@ -24,7 +23,7 @@ function toProvider(r: RowDataPacket): ProviderRow {
 }
 
 export async function listProviders(db: Queryable, owner: Owner): Promise<ProviderRow[]> {
-  const [rows] = await db.query<RowDataPacket[]>(
+  const [rows] = await db.query<Row[]>(
     'SELECT id, kind, label, base_url, key_sealed, key_hint FROM ai_provider WHERE user_id = ? ORDER BY id',
     [owner.userId],
   );
@@ -32,7 +31,7 @@ export async function listProviders(db: Queryable, owner: Owner): Promise<Provid
 }
 
 export async function findProvider(db: Queryable, owner: Owner, id: number): Promise<ProviderRow | null> {
-  const [rows] = await db.query<RowDataPacket[]>(
+  const [rows] = await db.query<Row[]>(
     'SELECT id, kind, label, base_url, key_sealed, key_hint FROM ai_provider WHERE user_id = ? AND id = ?',
     [owner.userId, id],
   );
@@ -40,7 +39,7 @@ export async function findProvider(db: Queryable, owner: Owner, id: number): Pro
 }
 
 export async function insertProvider(db: Queryable, owner: Owner, p: Omit<ProviderRow, 'id'>): Promise<number> {
-  const [result] = await db.query<ResultSetHeader>(
+  const [result] = await db.query<RunResult>(
     'INSERT INTO ai_provider (user_id, kind, label, base_url, key_sealed, key_hint) VALUES (?, ?, ?, ?, ?, ?)',
     [owner.userId, p.kind, p.label, p.baseUrl, p.keySealed, p.keyHint],
   );
@@ -70,7 +69,7 @@ export async function updateProvider(
 
 /** Deletes a provider; its task rows go with it (ON DELETE CASCADE). */
 export async function deleteProvider(db: Queryable, owner: Owner, id: number): Promise<boolean> {
-  const [result] = await db.query<ResultSetHeader>('DELETE FROM ai_provider WHERE user_id = ? AND id = ?', [owner.userId, id]);
+  const [result] = await db.query<RunResult>('DELETE FROM ai_provider WHERE user_id = ? AND id = ?', [owner.userId, id]);
   return result.affectedRows > 0;
 }
 
@@ -81,14 +80,14 @@ export interface TaskModelRow {
 }
 
 export async function listTaskModels(db: Queryable, owner: Owner): Promise<TaskModelRow[]> {
-  const [rows] = await db.query<RowDataPacket[]>('SELECT task, provider_id, model FROM ai_task_model WHERE user_id = ?', [owner.userId]);
+  const [rows] = await db.query<Row[]>('SELECT task, provider_id, model FROM ai_task_model WHERE user_id = ?', [owner.userId]);
   return rows.map((r) => ({ task: String(r.task), providerId: Number(r.provider_id), model: String(r.model) }));
 }
 
 export async function setTaskModel(db: Queryable, owner: Owner, task: string, providerId: number, model: string): Promise<void> {
   await db.query(
     `INSERT INTO ai_task_model (user_id, task, provider_id, model) VALUES (?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE provider_id = VALUES(provider_id), model = VALUES(model)`,
+     ON CONFLICT (user_id, task) DO UPDATE SET provider_id = excluded.provider_id, model = excluded.model`,
     [owner.userId, task, providerId, model],
   );
 }
@@ -111,14 +110,15 @@ export interface UsageRow {
 export async function addUsage(db: Queryable, owner: Owner, u: Omit<UsageRow, 'calls'>): Promise<void> {
   await db.query(
     `INSERT INTO ai_usage (user_id, day, kind, model, task, calls, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-     ON DUPLICATE KEY UPDATE calls = calls + 1, tokens_in = tokens_in + VALUES(tokens_in), tokens_out = tokens_out + VALUES(tokens_out)`,
+     ON CONFLICT (user_id, day, kind, model, task) DO UPDATE SET calls = calls + 1,
+       tokens_in = tokens_in + excluded.tokens_in, tokens_out = tokens_out + excluded.tokens_out`,
     [owner.userId, u.day, u.kind, u.model, u.task, u.tokensIn, u.tokensOut],
   );
 }
 
 export async function usageSince(db: Queryable, owner: Owner, day: string): Promise<UsageRow[]> {
-  const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(day, '%Y-%m-%d') AS day, kind, model, task, calls, tokens_in, tokens_out
+  const [rows] = await db.query<Row[]>(
+    `SELECT day, kind, model, task, calls, tokens_in, tokens_out
        FROM ai_usage WHERE user_id = ? AND day >= ? ORDER BY day DESC, model, task`,
     [owner.userId, day],
   );

@@ -1,15 +1,13 @@
 import { defineConfig } from 'vitest/config';
 
-// Tests run against the real MySQL test database (TEST_DB_NAME, default `${DB_NAME}_test`).
-// Files run one at a time because they share that database and truncate it before each test.
+// Tests with a database: SQLite in memory, one per test file (test/support/db.ts), so the files run
+// side by side.
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     // Those without a database run on their own: vitest.unit.config.ts.
     exclude: ['test/**/*.unit.test.ts'],
     environment: 'node',
-    fileParallelism: false,
-    globalSetup: ['./test/global-setup.ts'],
     setupFiles: ['./test/setup.ts'],
     testTimeout: 20_000,
     hookTimeout: 60_000,

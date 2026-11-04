@@ -1,11 +1,10 @@
-import type { RowDataPacket } from 'mysql2/promise';
-import type { Queryable } from '../../db/pool.js';
+import type { Queryable, Row } from '../../db/database.js';
 import type { Owner } from '../../shared/owner.js';
 import type { ImagePrint, Mark, SavedMark } from './files.js';
 
 /** The owner's image marks (a few dozen at most: logos of the customers who write). */
 export async function listMarks(db: Queryable, owner: Owner): Promise<SavedMark[]> {
-  const [rows] = await db.query<RowDataPacket[]>('SELECT exact_hash, dhash, ratio, mark FROM image_mark WHERE user_id = ?', [owner.userId]);
+  const [rows] = await db.query<Row[]>('SELECT exact_hash, dhash, ratio, mark FROM image_mark WHERE user_id = ?', [owner.userId]);
   return rows.map((r) => ({ exact: String(r.exact_hash), dhash: String(r.dhash), ratio: Number(r.ratio), mark: r.mark as Mark }));
 }
 
@@ -13,8 +12,8 @@ export async function listMarks(db: Queryable, owner: Owner): Promise<SavedMark[
 export async function saveMark(db: Queryable, owner: Owner, print: ImagePrint, mark: Mark): Promise<void> {
   await db.query(
     `INSERT INTO image_mark (user_id, exact_hash, dhash, ratio, mark) VALUES (?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE dhash = VALUES(dhash), ratio = VALUES(ratio), mark = VALUES(mark)`,
-    [owner.userId, print.exact, print.dhash, print.ratio.toFixed(4), mark],
+     ON CONFLICT (user_id, exact_hash) DO UPDATE SET dhash = excluded.dhash, ratio = excluded.ratio, mark = excluded.mark`,
+    [owner.userId, print.exact, print.dhash, Number(print.ratio.toFixed(4)), mark],
   );
 }
 

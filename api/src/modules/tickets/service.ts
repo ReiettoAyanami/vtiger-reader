@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import { badRequest, conflict, notFound } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import { Semaphore, type CrmClient } from '../crm/client.js';
@@ -221,7 +221,7 @@ function looksLikeNumber(q: string): boolean {
 
 export class TicketsService {
   constructor(
-    private readonly pool: Pool,
+    private readonly pool: Database,
     private readonly crm: CrmClient,
     private readonly lists: ListsService,
   ) {}

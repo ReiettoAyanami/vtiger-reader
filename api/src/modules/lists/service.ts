@@ -1,4 +1,4 @@
-import type { Pool } from '../../db/pool.js';
+import type { Database } from '../../db/database.js';
 import { badRequest, notFound } from '../../shared/errors.js';
 import type { Owner } from '../../shared/owner.js';
 import { normalizeFilter, type ListFilter, type TicketList } from './filter.js';
@@ -18,7 +18,7 @@ export const MAX_LISTS = 50;
  * (tickets/service.ts), since the CRM can change them.
  */
 export class ListsService {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Database) {}
 
   async all(owner: Owner): Promise<TicketList[]> {
     return repo.listLists(this.pool, owner);

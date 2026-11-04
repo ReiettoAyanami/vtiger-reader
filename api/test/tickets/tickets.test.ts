@@ -310,7 +310,7 @@ describe('attachments', () => {
     expect((await api.put('/api/tickets/17x1/files/15x1/mark', { mark: 'photo' })).body).toEqual({ mark: 'photo' });
     let byId = Object.fromEntries(((await api.get('/api/tickets/17x1/attachments')).body as Array<{ id: string }>).map((a) => [a.id, a]));
     expect(byId['15x1']).toMatchObject({ mark: 'photo', signature: false });
-    expect(await rawRows('SELECT mark, CHAR_LENGTH(exact_hash) AS exact, CHAR_LENGTH(dhash) AS dhash FROM image_mark')).toEqual([{ mark: 'photo', exact: 64, dhash: 16 }]);
+    expect(await rawRows('SELECT mark, length(exact_hash) AS exact, length(dhash) AS dhash FROM image_mark')).toEqual([{ mark: 'photo', exact: 64, dhash: 16 }]);
 
     expect((await api.put('/api/tickets/17x1/files/15x2/mark', { mark: 'logo' })).body).toEqual({ mark: 'logo' });
     byId = Object.fromEntries(((await api.get('/api/tickets/17x1/attachments')).body as Array<{ id: string }>).map((a) => [a.id, a]));

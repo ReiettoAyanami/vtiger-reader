@@ -31,6 +31,9 @@ async function failure(promise: Promise<unknown>): Promise<AiError> {
   return error as AiError;
 }
 
+/** What Windows gives every child process, whatever its environment (libuv's required variables). */
+const WINDOWS_REQUIRED = ['HOMEDRIVE', 'HOMEPATH', 'LOGONSERVER', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'WINDIR'];
+
 describe('Claude Code adapter (the user’s own subscription)', () => {
   it('runs Claude Code headless, every tool off, nothing kept; streams the answer; counts every token', async () => {
     const { result, seen } = await ask(TOKEN);
@@ -59,7 +62,17 @@ describe('Claude Code adapter (the user’s own subscription)', () => {
     process.env.DB_PASSWORD = 'server-secret';
     try {
       const { seen } = await ask(TOKEN);
-      expect(seen.env).toEqual(['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC', 'CLAUDE_CODE_OAUTH_TOKEN', 'DISABLE_AUTOUPDATER', 'HOME', 'LANG', 'PATH']);
+      // On Windows the system adds what every program needs (libuv's required variables): not ours.
+      const system = process.platform === 'win32' ? WINDOWS_REQUIRED : [];
+      expect(seen.env.filter((name) => !system.includes(name))).toEqual([
+        'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC',
+        'CLAUDE_CODE_OAUTH_TOKEN',
+        'DISABLE_AUTOUPDATER',
+        'HOME',
+        'LANG',
+        'PATH',
+      ]);
+      expect(seen.env).not.toContain('DB_PASSWORD');
       expect(seen.args.join(' ')).not.toContain(TOKEN);
     } finally {
       delete process.env.DB_PASSWORD;

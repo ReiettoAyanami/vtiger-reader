@@ -1,13 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import mysql from 'mysql2/promise';
-import type { RowDataPacket } from 'mysql2/promise';
-import type { DbConfig } from '../config.js';
+import type { Database, Row } from './database.js';
 
 /**
- * api/migrations, resolved from this file: works from src/db (tsx, vitest) and from
- * dist/db (compiled, /app/dist/db -> /app/migrations in the prod image).
+ * api/migrations, resolved from this file: works from src/db (tsx, vitest) and from dist/db
+ * (compiled, inside the desktop app too).
  */
 export const DEFAULT_MIGRATIONS_DIR = fileURLToPath(new URL('../../migrations/', import.meta.url));
 
@@ -32,109 +30,40 @@ export async function listMigrationFiles(dir: string): Promise<string[]> {
 }
 
 /**
- * Creates the database DB_NAME when the server does not have it yet (a new installation on a MySQL
- * of one's own), so the migrations can then create its tables. Runs on a connection with no
- * database chosen. A database the user can already see (any privilege on it) is left alone, so a
- * user with table privileges only, on a database made by its administrator, works too.
- * The MySQL user is never created here: that takes root, which the app never holds.
- * Returns true when it created the database.
- */
-export async function ensureDatabase(db: DbConfig): Promise<boolean> {
-  const conn = await mysql.createConnection({
-    host: db.host,
-    port: db.port,
-    user: db.user,
-    password: db.password,
-    charset: 'utf8mb4',
-    connectTimeout: 5_000,
-  });
-  try {
-    const [rows] = await conn.query<RowDataPacket[]>(
-      'SELECT 1 FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?',
-      [db.database],
-    );
-    if (rows.length > 0) return false;
-    try {
-      await conn.query(`CREATE DATABASE IF NOT EXISTS ${mysql.escapeId(db.database)} CHARACTER SET utf8mb4`);
-    } catch (err) {
-      if ((err as { code?: unknown }).code !== 'ER_DBACCESS_DENIED_ERROR') throw err;
-      throw new Error(
-        `The database "${db.database}" does not exist (or "${db.user}" has no privilege on it) and "${db.user}" ` +
-          `cannot create it. As a MySQL administrator, run: GRANT ALL ON ${mysql.escapeId(db.database)}.* TO ` +
-          `'${db.user}'@'%'; (or create the database and grant the user its privileges)`,
-        { cause: err },
-      );
-    }
-    return true;
-  } finally {
-    await conn.end().catch(() => undefined);
-  }
-}
-
-/**
- * Applies the pending migrations, in filename order, and records each one in
- * `schema_migrations` after it succeeds. Runs on its own connection with
- * multipleStatements (a migration file is a script), under a server-wide named lock so two
- * API processes starting together cannot apply the same file twice.
+ * Applies the pending migrations, in filename order, each in its own transaction, and records each
+ * one in `schema_migrations` with it: a file that fails leaves nothing behind. One process owns the
+ * database file (the desktop app), and BEGIN IMMEDIATE holds the write lock anyway.
  * Returns the versions applied by this call.
  */
-export async function runMigrations(db: DbConfig, options: MigrateOptions = {}): Promise<string[]> {
+export async function runMigrations(db: Database, options: MigrateOptions = {}): Promise<string[]> {
   const dir = options.dir ?? resolveMigrationsDir();
   const log = options.log ?? (() => undefined);
   const files = await listMigrationFiles(dir);
-  const lockName = `vtiger-reader:migrate:${db.database}`;
-
-  const conn = await mysql.createConnection({
-    host: db.host,
-    port: db.port,
-    user: db.user,
-    password: db.password,
-    database: db.database,
-    timezone: 'Z',
-    charset: 'utf8mb4',
-    multipleStatements: true,
-    connectTimeout: 5_000,
-  });
-  try {
-    await conn.query("SET time_zone = '+00:00'");
-    const [lock] = await conn.query<RowDataPacket[]>('SELECT GET_LOCK(?, 60) AS got', [lockName]);
-    if (Number(lock[0]?.got) !== 1) {
-      throw new Error(`Could not acquire the migration lock "${lockName}" within 60 s`);
-    }
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+       version    TEXT NOT NULL PRIMARY KEY,
+       applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     )`,
+  );
+  const [rows] = await db.query<Row[]>('SELECT version FROM schema_migrations');
+  const done = new Set(rows.map((r) => String(r.version)));
+  const applied: string[] = [];
+  for (const file of files) {
+    // The version is the file's name without .sql: 001_init.
+    const version = file.replace(/\.sql$/, '');
+    if (done.has(version)) continue;
+    const sql = await readFile(join(dir, file), 'utf8');
+    db.exec('BEGIN IMMEDIATE');
     try {
-      await conn.query(
-        `CREATE TABLE IF NOT EXISTS schema_migrations (
-           version    VARCHAR(255) NOT NULL PRIMARY KEY,
-           applied_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
-         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4`,
-      );
-      const [rows] = await conn.query<RowDataPacket[]>('SELECT version FROM schema_migrations');
-      const applied = new Set(rows.map((r) => String(r.version)));
-
-      const done: string[] = [];
-      for (const file of files) {
-        const version = file.replace(/\.sql$/, '');
-        if (applied.has(version)) continue;
-        const sql = await readFile(join(dir, file), 'utf8');
-        log(`applying migration ${file}`);
-        // Foreign keys may reference tables created later in the same file.
-        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-        try {
-          if (sql.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, '').trim() !== '') {
-            await conn.query(sql);
-          }
-        } finally {
-          await conn.query('SET FOREIGN_KEY_CHECKS = 1');
-        }
-        await conn.query('INSERT INTO schema_migrations (version) VALUES (?)', [version]);
-        done.push(version);
-      }
-      if (done.length === 0) log('database schema is up to date');
-      return done;
-    } finally {
-      await conn.query('SELECT RELEASE_LOCK(?)', [lockName]).catch(() => undefined);
+      db.exec(sql);
+      await db.query('INSERT INTO schema_migrations (version) VALUES (?)', [version]);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw new Error(`Migration ${file} failed: ${(err as Error).message}`, { cause: err });
     }
-  } finally {
-    await conn.end().catch(() => undefined);
+    log(`applied ${version}`);
+    applied.push(version);
   }
+  return applied;
 }

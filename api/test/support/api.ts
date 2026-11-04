@@ -4,7 +4,7 @@ import { buildApp } from '../../src/app.js';
 import type { Clock } from '../../src/shared/time.js';
 import type { FakeCrm } from './fake-crm.js';
 import { FakeNotifier } from './fake-notifier.js';
-import { testPool } from './db.js';
+import { testDb } from './db.js';
 
 /** Fixed "now" for the tests: 2026-09-29 12:00 in Rome. */
 export const NOW = new Date('2026-09-29T10:00:00Z');
@@ -115,7 +115,7 @@ export async function makeApi(
   const fetch: typeof globalThis.fetch = opts.crm?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests')));
   const crm = { fetch, hostAllowed: opts.hostAllowed ?? (async () => true) };
   const app = await buildApp({
-    pool: testPool(),
+    db: testDb(),
     clock: opts.clock ?? fixedClock,
     webDist: opts.webDist,
     crm: { ...crm, ...(opts.encryptionKey ? { encryptionKey: opts.encryptionKey } : {}) },
