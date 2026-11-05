@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { join, win32 } from 'node:path';
 import { Semaphore } from '../crm/client.js';
 import { AiError, type Adapter, type ChatRequest, type ChatResult, type ModelInfo } from './adapter.js';
 
@@ -27,6 +28,34 @@ const ALIASES: ModelInfo[] = [
 
 /** Each answer is a process: at most this many at once on the server. */
 const RUNNING = new Semaphore(2);
+
+/** How to get Claude Code, said where it is missing: on Windows, Anthropic's native installer. */
+function notInstalled(): string {
+  const how = process.platform === 'win32' ? 'irm https://claude.ai/install.ps1 | iex' : 'curl -fsSL https://claude.ai/install.sh | bash';
+  return `Claude Code is not installed on this computer. Install it (${how}), run claude once to sign in, then save again`;
+}
+
+/**
+ * The program to run. On Windows the native installer puts claude.exe in %USERPROFILE%\.local\bin,
+ * and does not always add that folder to PATH (Anthropic's troubleshooting page): when the bare name
+ * is not on PATH, that file is used. A npm install makes a claude.cmd, which a program cannot start
+ * without a shell, so it is not looked for.
+ */
+export function resolveCommand(
+  command: string[],
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  exists: (path: string) => boolean = existsSync,
+  home: string = homedir(),
+): string[] {
+  const [bin, ...rest] = command;
+  if (bin !== 'claude' || platform !== 'win32') return command;
+  const paths = win32;
+  const onPath = (env.PATH ?? env.Path ?? '').split(';').some((dir) => dir !== '' && exists(paths.join(dir, 'claude.exe')));
+  if (onPath) return command;
+  const native = paths.join(home, '.local', 'bin', 'claude.exe');
+  return exists(native) ? [native, ...rest] : command;
+}
 
 /** What a user needs to hear when Claude Code has no usable login on this computer. */
 const SIGN_IN =
@@ -96,7 +125,7 @@ export interface ClaudeCodeStatus {
 export async function claudeCodeStatus(command: string[] = ['claude'], timeoutMs = 30_000): Promise<ClaudeCodeStatus> {
   const workdir = await mkdtemp(join(tmpdir(), 'vtiger-claude-'));
   try {
-    const [bin, ...prefix] = command;
+    const [bin, ...prefix] = resolveCommand(command);
     const out = await capture(bin!, [...prefix, 'auth', 'status', '--json'], workdir, timeoutMs);
     let parsed: { loggedIn?: unknown; subscriptionType?: unknown };
     try {
@@ -128,7 +157,7 @@ function capture(bin: string, args: string[], cwd: string, timeoutMs: number): P
       reject(
         new AiError(
           'unreachable',
-          error.code === 'ENOENT' ? 'Claude Code is not installed on this computer' : `Claude Code did not start: ${error.message}`,
+          error.code === 'ENOENT' ? notInstalled() : `Claude Code did not start: ${error.message}`,
         ),
       );
     });
@@ -183,7 +212,7 @@ export class ClaudeCodeAdapter implements Adapter {
     ];
 
     const workdir = await mkdtemp(join(tmpdir(), 'vtiger-claude-'));
-    const [bin, ...prefix] = this.command;
+    const [bin, ...prefix] = resolveCommand(this.command);
     const child = spawn(
       bin!,
       [
@@ -272,7 +301,7 @@ export class ClaudeCodeAdapter implements Adapter {
       await exit.catch((error: NodeJS.ErrnoException) => {
         throw new AiError(
           'unreachable',
-          error.code === 'ENOENT' ? 'Claude Code is not installed on this computer' : `Claude Code did not start: ${error.message}`,
+          error.code === 'ENOENT' ? notInstalled() : `Claude Code did not start: ${error.message}`,
         );
       });
       handle(buffer);
