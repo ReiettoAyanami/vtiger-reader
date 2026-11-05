@@ -10,8 +10,8 @@ export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
 /** The kinds whose address the user gives; the others have a fixed one. */
 export const KINDS_WITH_URL: ReadonlySet<ProviderKind> = new Set(['openai-compatible', 'ollama']);
-/** The kinds that work without an API key (a local Ollama). */
-export const KINDS_WITHOUT_KEY: ReadonlySet<ProviderKind> = new Set(['ollama']);
+/** The kinds that work without an API key: a local Ollama, and Claude Code with the login of this computer. */
+export const KINDS_WITHOUT_KEY: ReadonlySet<ProviderKind> = new Set(['ollama', 'claude-code']);
 
 export type Part = { type: 'text'; text: string } | { type: 'image'; mediaType: 'image/jpeg'; data: string };
 

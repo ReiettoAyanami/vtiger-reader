@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { READ_OPERATIONS } from '../../src/modules/crm/webservice.js';
-import { expectProblem, makeApi, type Api } from '../support/api.js';
+import { expectProblem, FAKE_CLAUDE, makeApi, type Api } from '../support/api.js';
 import { rawRows } from '../support/db.js';
 import { FakeAnthropic, FakeOpenAi } from '../support/fake-ai.js';
 import { FakeCrm } from '../support/fake-crm.js';
@@ -35,7 +35,7 @@ beforeEach(async () => {
   anthropic = new FakeAnthropic();
   const route: typeof fetch = (input, init) =>
     String(input instanceof Request ? input.url : input).startsWith('https://api.anthropic.com') ? anthropic.fetch(input, init) : openai.fetch(input, init);
-  api = await makeApi({ crm, ai: { fetch: route, privateHosts: ['ollama.lan:11434'] } });
+  api = await makeApi({ crm, ai: { fetch: route, privateHosts: ['ollama.lan:11434'], claudeCode: FAKE_CLAUDE('ok') } });
   expect((await api.put('/api/crm/link', { url: crm.url, ...MARIO })).status).toBe(200);
 });
 afterEach(async () => {
@@ -85,6 +85,21 @@ describe('/api/ai/providers', () => {
     expect(ollama.body).toMatchObject({ baseUrl: 'http://ollama.lan:11434', hasKey: false });
     expect((await api.post('/api/ai/providers', { kind: 'anthropic', label: 'Claude', baseUrl: 'https://elsewhere.example', apiKey: anthropic.key })).body.baseUrl).toBeNull();
     expectProblem(await api.post('/api/ai/providers', { kind: 'openai', label: 'OpenAI' }), 400);
+  });
+
+  it('Claude Code: the login of this computer, no key; not signed in: said so, nothing kept', async () => {
+    const signedOut = await makeApi({ ai: { claudeCode: FAKE_CLAUDE('signed-out') } });
+    expectProblem(await signedOut.post('/api/ai/providers', { kind: 'claude-code', label: 'Claude Code' }), 409, 'claude-code-signed-out');
+    expect((await signedOut.get('/api/ai/providers')).body).toEqual([]);
+  });
+
+  it('Claude Code: signed in on this computer, saved with no key; a key is refused; its models are the aliases', async () => {
+    const res = await api.post('/api/ai/providers', { kind: 'claude-code', label: 'Claude Code' });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body).toMatchObject({ kind: 'claude-code', label: 'Claude Code', baseUrl: null, hasKey: false, keyHint: null });
+    expectProblem(await api.post('/api/ai/providers', { kind: 'claude-code', label: 'Other', apiKey: 'sk-ant-oat01-pasted' }), 400);
+    expectProblem(await api.put(`/api/ai/providers/${res.body.id}`, { kind: 'claude-code', label: 'Claude Code', apiKey: 'sk-ant-oat01-pasted' }), 400);
+    expect((await api.get(`/api/ai/providers/${res.body.id}/models`)).body.map((m: { id: string }) => m.id)).toEqual(['opus', 'sonnet', 'haiku', 'fable']);
   });
 
   it("lists the provider's models (the settings' Test); a wrong key says so", async () => {

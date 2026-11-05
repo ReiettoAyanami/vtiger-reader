@@ -6,12 +6,15 @@ import { Semaphore } from '../crm/client.js';
 import { AiError, type Adapter, type ChatRequest, type ChatResult, type ModelInfo } from './adapter.js';
 
 /**
- * Claude Code with the user's own Claude subscription (lenzi, 2026-11-03: "io pago 20 euro al mese";
- * the app's private use, each user their own subscription). The official, unmodified `claude`
- * program runs headless (`-p`), every tool off, no session kept, in an empty home of its own, with
- * the long-lived token its owner made with `claude setup-token` on their own computer (Anthropic's
- * way to use a subscription in one's own automation, as its GitHub Action does). The app never
- * logs anyone into Claude and never reads a token out of a login: the user pastes their own.
+ * Claude Code with the user's own Claude subscription, through the login that Claude Code already
+ * has on this computer (plan 4.3, 2026-11-05). The app keeps no token and signs nobody in: the
+ * official, unmodified `claude` program keeps the login, made by its user in Claude Code. This file
+ * never reads a credential. Anthropic's terms let an end user sign in to the unmodified Claude Code
+ * binary with their own subscription, and forbid third parties to collect or store such credentials
+ * (https://code.claude.com/docs/en/legal-and-compliance). Products are advised to use API keys: this
+ * is each user's own use, on their own computer.
+ * The program runs headless (`-p`): every tool off, no session kept, no CLAUDE.md, no memory, no
+ * hooks from the user's settings, no MCP servers, in an empty working folder of its own.
  */
 
 /** Claude Code's own model aliases (`claude --help`: "an alias for the latest model"). */
@@ -25,6 +28,51 @@ const ALIASES: ModelInfo[] = [
 /** Each answer is a process: at most this many at once on the server. */
 const RUNNING = new Semaphore(2);
 
+/** What a user needs to hear when Claude Code has no usable login on this computer. */
+const SIGN_IN =
+  'Claude Code is not signed in on this computer, or its sign-in expired: open Claude Code, sign in with your Claude account, then try again';
+
+/**
+ * What the program gets from this process: what it needs to run, and to find the login in the home
+ * folder (HOME, USERPROFILE). Never the server's own secrets: its database password, its keys.
+ */
+const INHERITED = [
+  'PATH',
+  'HOME',
+  'USERPROFILE',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'SYSTEMROOT',
+  'SYSTEMDRIVE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'USERNAME',
+  'USERDOMAIN',
+  'LOGONSERVER',
+  'WINDIR',
+  'TEMP',
+  'TMP',
+  'LANG',
+  'LC_ALL',
+  'USER',
+] as const;
+
+function childEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of INHERITED) {
+    const value = process.env[name];
+    if (value !== undefined) env[name] = value;
+  }
+  return {
+    ...env,
+    // An answer, not a session: no CLAUDE.md, no memory written, no updater, no extra traffic.
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    DISABLE_AUTOUPDATER: '1',
+  };
+}
+
 /** Claude Code's last event: how the answer went, and its usage. */
 interface ResultEvent {
   is_error?: boolean;
@@ -32,6 +80,63 @@ interface ResultEvent {
   api_error_status?: number | null;
   usage?: Record<string, number>;
   modelUsage?: Record<string, unknown>;
+}
+
+/** Whether Claude Code has a login on this computer, and which plan it is. */
+export interface ClaudeCodeStatus {
+  loggedIn: boolean;
+  /** The plan of the login ("pro", "max"...), as Claude Code names it. */
+  plan: string | null;
+}
+
+/**
+ * Whether Claude Code is signed in on this computer: its own `auth status`, read from its own record
+ * of the login. No model is asked, and the app reads no credential.
+ */
+export async function claudeCodeStatus(command: string[] = ['claude'], timeoutMs = 30_000): Promise<ClaudeCodeStatus> {
+  const workdir = await mkdtemp(join(tmpdir(), 'vtiger-claude-'));
+  try {
+    const [bin, ...prefix] = command;
+    const out = await capture(bin!, [...prefix, 'auth', 'status', '--json'], workdir, timeoutMs);
+    let parsed: { loggedIn?: unknown; subscriptionType?: unknown };
+    try {
+      parsed = JSON.parse(out);
+    } catch {
+      // Not its JSON: it did not say that it is signed in.
+      return { loggedIn: false, plan: null };
+    }
+    return {
+      loggedIn: parsed.loggedIn === true,
+      plan: typeof parsed.subscriptionType === 'string' ? parsed.subscriptionType : null,
+    };
+  } finally {
+    await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** The program's standard output, once it ends. A program that is not installed is said so. */
+function capture(bin: string, args: string[], cwd: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { cwd, env: childEnv(), stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let out = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => (out += chunk));
+    child.stderr.resume();
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
+      reject(
+        new AiError(
+          'unreachable',
+          error.code === 'ENOENT' ? 'Claude Code is not installed on this computer' : `Claude Code did not start: ${error.message}`,
+        ),
+      );
+    });
+    child.on('close', () => {
+      clearTimeout(timer);
+      resolve(out.trim());
+    });
+  });
 }
 
 export interface ClaudeCodeOptions {
@@ -44,15 +149,12 @@ export class ClaudeCodeAdapter implements Adapter {
   private readonly command: string[];
   private readonly timeoutMs: number;
 
-  constructor(
-    private readonly token: string,
-    options: ClaudeCodeOptions = {},
-  ) {
+  constructor(options: ClaudeCodeOptions = {}) {
     this.command = options.command ?? ['claude'];
     this.timeoutMs = options.timeoutMs ?? 180_000;
   }
 
-  /** The aliases, once the token is shown to work (one tiny answer from Haiku: the settings' Test). */
+  /** The aliases, once Claude Code answers (one tiny answer from Haiku: the settings' Test). */
   async models(): Promise<ModelInfo[]> {
     await this.stream(
       { model: 'haiku', system: 'Reply with exactly one word.', messages: [{ role: 'user', content: [{ type: 'text', text: 'Say OK' }] }] },
@@ -80,7 +182,7 @@ export class ClaudeCodeAdapter implements Adapter {
       ),
     ];
 
-    const home = await mkdtemp(join(tmpdir(), 'vtiger-claude-'));
+    const workdir = await mkdtemp(join(tmpdir(), 'vtiger-claude-'));
     const [bin, ...prefix] = this.command;
     const child = spawn(
       bin!,
@@ -102,18 +204,13 @@ export class ClaudeCodeAdapter implements Adapter {
         '--no-session-persistence',
         '--strict-mcp-config',
         '--disable-slash-commands',
+        // Not the hooks of the user's own settings: the answer is the app's, not the user's session.
+        '--setting-sources',
+        'local',
       ],
       {
-        cwd: home,
-        // Only this: never the server's own environment (its database password, its keys).
-        env: {
-          PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
-          HOME: home,
-          LANG: 'C.UTF-8',
-          CLAUDE_CODE_OAUTH_TOKEN: this.token,
-          DISABLE_AUTOUPDATER: '1',
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-        },
+        cwd: workdir,
+        env: childEnv(),
         stdio: ['pipe', 'pipe', 'pipe'],
         detached: true,
         // The desktop app on Windows: no console window flashing up for it.
@@ -173,25 +270,28 @@ export class ClaudeCodeAdapter implements Adapter {
 
     try {
       await exit.catch((error: NodeJS.ErrnoException) => {
-        throw new AiError('unreachable', error.code === 'ENOENT' ? 'Claude Code is not installed on the server' : `Claude Code did not start: ${error.message}`);
+        throw new AiError(
+          'unreachable',
+          error.code === 'ENOENT' ? 'Claude Code is not installed on this computer' : `Claude Code did not start: ${error.message}`,
+        );
       });
       handle(buffer);
     } finally {
       clearTimeout(timer);
-      await rm(home, { recursive: true, force: true }).catch(() => undefined);
+      await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
     }
 
     if (request.signal?.aborted) throw new AiError('failed', 'Stopped');
     const done = seen.result;
     if (!done) {
       const text = stderr.trim().slice(-300);
-      if (/auth|login|token|credential|401/i.test(text)) throw new AiError('auth', `Claude Code refused the token: ${text}`);
+      if (/auth|login|log in|credential|401/i.test(text)) throw new AiError('auth', `${SIGN_IN}. ${text}`);
       throw new AiError('unreachable', `Claude Code stopped without an answer${text ? `: ${text}` : ''}`);
     }
     if (done.is_error) {
       const status = done.api_error_status ?? 0;
       const message = String(done.result ?? 'error').slice(0, 300);
-      if (status === 401 || status === 403 || /auth|log ?in|token/i.test(message)) throw new AiError('auth', `Claude Code refused the token: ${message}`);
+      if (status === 401 || status === 403 || /auth|log ?in/i.test(message)) throw new AiError('auth', `${SIGN_IN}. ${message}`);
       if (status === 429 || /limit/i.test(message)) throw new AiError('rate-limit', `The subscription's limit is reached: ${message}`);
       throw new AiError('failed', `Claude Code: ${message}`);
     }

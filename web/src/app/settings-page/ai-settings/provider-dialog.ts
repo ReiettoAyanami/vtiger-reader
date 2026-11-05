@@ -64,23 +64,20 @@ import { ApiError } from '../../data/api-error';
         }
         @if (kind() === 'claude-code') {
           <p class="how">
-            On your computer, run <code>claude setup-token</code>, sign in to Claude in the browser,
-            and paste the token it prints (sk-ant-oat…). It is yours: it answers with your
-            subscription, for you only.
+            Claude Code keeps its own sign-in on this computer, so there is nothing to paste. If it is
+            not signed in yet, open Claude Code, sign in with your Claude account, then save here.
           </p>
+        } @else {
+          <mat-form-field appearance="outline">
+            <mat-label>API key{{ current().needsKey ? '' : ' (if it has one)' }}</mat-label>
+            <input matInput formControlName="apiKey" type="password" autocomplete="off" />
+            @if (data?.hasKey) {
+              <mat-hint>Saved ({{ data?.keyHint }}): leave empty to keep it</mat-hint>
+            } @else {
+              <mat-hint>Kept encrypted on this PC, never shown again</mat-hint>
+            }
+          </mat-form-field>
         }
-        <mat-form-field appearance="outline">
-          <mat-label
-            >{{ kind() === 'claude-code' ? 'Token' : 'API key'
-            }}{{ current().needsKey ? '' : ' (if it has one)' }}</mat-label
-          >
-          <input matInput formControlName="apiKey" type="password" autocomplete="off" />
-          @if (data?.hasKey) {
-            <mat-hint>Saved ({{ data?.keyHint }}): leave empty to keep it</mat-hint>
-          } @else {
-            <mat-hint>Kept encrypted on this PC, never shown again</mat-hint>
-          }
-        </mat-form-field>
         @if (error(); as message) {
           <p class="error" role="alert">{{ message }}</p>
         }
@@ -146,7 +143,7 @@ export class ProviderDialog {
       kind,
       label: name,
       ...(this.current().needsUrl ? { baseUrl: baseUrl.trim() } : {}),
-      ...(apiKey.trim() || !this.data ? { apiKey: apiKey.trim() } : {}),
+      ...(kind !== 'claude-code' && (apiKey.trim() || !this.data) ? { apiKey: apiKey.trim() } : {}),
     };
     this.saving.set(true);
     this.error.set(null);

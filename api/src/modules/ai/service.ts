@@ -14,7 +14,7 @@ import {
   type ProviderKind,
 } from './adapter.js';
 import { AnthropicAdapter } from './anthropic.js';
-import { ClaudeCodeAdapter } from './claude-code.js';
+import { ClaudeCodeAdapter, claudeCodeStatus } from './claude-code.js';
 import { OpenAiAdapter } from './openai.js';
 import * as repo from './repository.js';
 
@@ -110,6 +110,7 @@ export class AiService {
   async createProvider(owner: Owner, input: ProviderInput): Promise<ProviderView> {
     const { label, baseUrl } = await this.checked(input);
     const key = (input.apiKey ?? '').trim();
+    if (input.kind === 'claude-code') await this.signedIn(key);
     if (!key && !KINDS_WITHOUT_KEY.has(input.kind)) throw badRequest('Required', 'apiKey');
     if ((await repo.listProviders(this.pool, owner)).length >= 20) throw badRequest('At most 20 providers');
     const id = await repo.insertProvider(this.pool, owner, {
@@ -125,6 +126,7 @@ export class AiService {
   async updateProvider(owner: Owner, id: number, input: ProviderInput): Promise<ProviderView> {
     const current = await this.row(owner, id);
     if (input.kind !== current.kind) throw badRequest('The kind of a provider does not change: add a new one', 'kind');
+    if (input.kind === 'claude-code' && (input.apiKey ?? '').trim()) throw badRequest('Claude Code uses the login of this computer: it takes no key', 'apiKey');
     const { label, baseUrl } = await this.checked(input);
     let key: { sealed: string | null; hint: string | null } | undefined;
     if (input.apiKey !== undefined) {
@@ -134,6 +136,18 @@ export class AiService {
     }
     await repo.updateProvider(this.pool, owner, id, { label, baseUrl, ...(key ? { key } : {}) });
     return this.view(await this.row(owner, id));
+  }
+
+  /** Claude Code keeps its own login on this computer: the app takes no key for it, and needs that login. */
+  private async signedIn(key: string): Promise<void> {
+    if (key) throw badRequest('Claude Code uses the login of this computer: it takes no key', 'apiKey');
+    const status = await claudeCodeStatus(this.options.claudeCode);
+    if (!status.loggedIn) {
+      throw conflict(
+        'claude-code-signed-out',
+        'Claude Code is not signed in on this computer: open Claude Code, sign in with your Claude account, then save again',
+      );
+    }
   }
 
   async deleteProvider(owner: Owner, id: number): Promise<void> {
@@ -188,7 +202,7 @@ export class AiService {
     }
     const http = this.options.fetch ? { fetch: this.options.fetch } : {};
     if (p.kind === 'anthropic') return new AnthropicAdapter(key ?? '', http);
-    if (p.kind === 'claude-code') return new ClaudeCodeAdapter(key ?? '', this.options.claudeCode ? { command: this.options.claudeCode } : {});
+    if (p.kind === 'claude-code') return new ClaudeCodeAdapter(this.options.claudeCode ? { command: this.options.claudeCode } : {});
     const base = p.kind === 'ollama' ? `${p.baseUrl}/v1` : (FIXED_URL[p.kind] ?? p.baseUrl ?? '');
     if (!(await this.reachable(base))) throw new AiError('address', `The address of "${p.label}" is not a public https address any more`);
     return new OpenAiAdapter(base, key, http);

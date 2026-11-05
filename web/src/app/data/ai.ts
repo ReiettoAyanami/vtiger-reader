@@ -15,7 +15,7 @@ export const PROVIDER_KINDS = [
     kind: 'claude-code',
     name: 'Claude Code (your Pro/Max subscription)',
     needsUrl: false,
-    needsKey: true,
+    needsKey: false,
   },
 ] as const;
 

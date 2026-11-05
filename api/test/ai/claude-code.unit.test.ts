@@ -1,10 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { AiError, type ChatRequest } from '../../src/modules/ai/adapter.js';
-import { ClaudeCodeAdapter } from '../../src/modules/ai/claude-code.js';
+import { ClaudeCodeAdapter, claudeCodeStatus } from '../../src/modules/ai/claude-code.js';
 
-const FAKE = ['node', fileURLToPath(new URL('../support/fake-claude.mjs', import.meta.url))];
-const TOKEN = 'sk-ant-oat01-test-token-0000';
+const FAKE_PATH = fileURLToPath(new URL('../support/fake-claude.mjs', import.meta.url));
+/** The fake, in one of its modes (see fake-claude.mjs). */
+const fake = (mode: string) => ['node', FAKE_PATH, mode];
 
 const request: ChatRequest = {
   model: 'sonnet',
@@ -16,10 +17,10 @@ const request: ChatRequest = {
   ],
 };
 
-async function ask(token: string, req: ChatRequest = request) {
+async function ask(mode: string, req: ChatRequest = request) {
   let text = '';
-  const result = await new ClaudeCodeAdapter(token, { command: FAKE }).stream(req, (t) => (text += t));
-  return { result, seen: JSON.parse(text) as { args: string[]; env: string[]; input: any } };
+  const result = await new ClaudeCodeAdapter({ command: fake(mode) }).stream(req, (t) => (text += t));
+  return { result, seen: JSON.parse(text) as { args: string[]; env: string[]; home: string | null; input: any } };
 }
 
 async function failure(promise: Promise<unknown>): Promise<AiError> {
@@ -34,9 +35,9 @@ async function failure(promise: Promise<unknown>): Promise<AiError> {
 /** What Windows gives every child process, whatever its environment (libuv's required variables). */
 const WINDOWS_REQUIRED = ['HOMEDRIVE', 'HOMEPATH', 'LOGONSERVER', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'WINDIR'];
 
-describe('Claude Code adapter (the user’s own subscription)', () => {
-  it('runs Claude Code headless, every tool off, nothing kept; streams the answer; counts every token', async () => {
-    const { result, seen } = await ask(TOKEN);
+describe('Claude Code adapter (the login of this computer, no token)', () => {
+  it('runs Claude Code headless, every tool off, no settings of the user; streams the answer; counts every token', async () => {
+    const { result, seen } = await ask('ok');
     expect(seen.args).toEqual([
       '-p',
       '--input-format',
@@ -54,33 +55,55 @@ describe('Claude Code adapter (the user’s own subscription)', () => {
       '--no-session-persistence',
       '--strict-mcp-config',
       '--disable-slash-commands',
+      '--setting-sources',
+      'local',
     ]);
     expect(result).toEqual({ model: 'claude-sonnet-9', inputTokens: 110, outputTokens: 20 });
   });
 
-  it('the token only in its environment, never on its command line; nothing of the server’s environment', async () => {
+  it('keeps the login’s folder (HOME) and no token; nothing of the server’s secrets or of an API key', async () => {
     process.env.DB_PASSWORD = 'server-secret';
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-api-test';
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'sk-ant-oat01-test';
     try {
-      const { seen } = await ask(TOKEN);
+      const { seen } = await ask('ok');
+      expect(seen.home).toBe(process.env.HOME ?? process.env.USERPROFILE ?? null);
+      expect(seen.env).toEqual(expect.arrayContaining(['CLAUDE_CODE_DISABLE_AUTO_MEMORY', 'CLAUDE_CODE_DISABLE_CLAUDE_MDS', 'DISABLE_AUTOUPDATER', 'PATH']));
+      expect(seen.env).not.toContain('DB_PASSWORD');
+      expect(seen.env).not.toContain('ANTHROPIC_API_KEY');
+      expect(seen.env).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
       // On Windows the system adds what every program needs (libuv's required variables): not ours.
       const system = process.platform === 'win32' ? WINDOWS_REQUIRED : [];
-      expect(seen.env.filter((name) => !system.includes(name))).toEqual([
+      const allowed = [
+        'APPDATA',
+        'AUTO_MEMORY',
+        'CLAUDE_CODE_DISABLE_CLAUDE_MDS',
+        'CLAUDE_CODE_DISABLE_AUTO_MEMORY',
         'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC',
-        'CLAUDE_CODE_OAUTH_TOKEN',
         'DISABLE_AUTOUPDATER',
         'HOME',
         'LANG',
+        'LC_ALL',
+        'LOCALAPPDATA',
         'PATH',
-      ]);
-      expect(seen.env).not.toContain('DB_PASSWORD');
-      expect(seen.args.join(' ')).not.toContain(TOKEN);
+        'SYSTEMROOT',
+        'TEMP',
+        'TMP',
+        'USER',
+        'USERNAME',
+        'USERPROFILE',
+      ];
+      expect(seen.env.filter((name) => !system.includes(name)).every((name) => allowed.includes(name))).toBe(true);
+      expect(seen.args.join(' ')).not.toContain('sk-ant');
     } finally {
       delete process.env.DB_PASSWORD;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     }
   });
 
   it('one user message: the earlier turns as a transcript, then the photos and the request', async () => {
-    const { seen } = await ask(TOKEN);
+    const { seen } = await ask('ok');
     expect(seen.input.type).toBe('user');
     expect(seen.input.message.content).toEqual([
       { type: 'text', text: 'Earlier in this conversation:\n\nTechnician: Summarize it\n\nYou: A printer is stuck.\n\nNow:' },
@@ -89,16 +112,24 @@ describe('Claude Code adapter (the user’s own subscription)', () => {
     ]);
   });
 
-  it('a refused token, the subscription’s limit, a crash, no program: each its kind', async () => {
-    expect((await failure(ask('bad-token'))).kind).toBe('auth');
-    expect((await failure(ask('limit-token'))).kind).toBe('rate-limit');
-    expect((await failure(ask('crash-token'))).kind).toBe('unreachable');
-    const missing = new ClaudeCodeAdapter(TOKEN, { command: ['/nonexistent/claude'] }).stream(request, () => undefined);
-    expect((await failure(missing)).message).toBe('Claude Code is not installed on the server');
+  it('not signed in, the subscription’s limit, a crash, no program: each its kind and its words', async () => {
+    const refused = await failure(ask('refuse'));
+    expect(refused.kind).toBe('auth');
+    expect(refused.message).toContain('not signed in on this computer');
+    expect((await failure(ask('limit'))).kind).toBe('rate-limit');
+    expect((await failure(ask('crash'))).kind).toBe('unreachable');
+    const missing = new ClaudeCodeAdapter({ command: ['/nonexistent/claude'] }).stream(request, () => undefined);
+    expect((await failure(missing)).message).toBe('Claude Code is not installed on this computer');
   });
 
-  it('the Test: a tiny answer from Haiku, then the aliases', async () => {
-    expect((await new ClaudeCodeAdapter(TOKEN, { command: FAKE }).models()).map((m) => m.id)).toEqual(['opus', 'sonnet', 'haiku', 'fable']);
-    await expect(new ClaudeCodeAdapter('bad-token', { command: FAKE }).models()).rejects.toMatchObject({ kind: 'auth' });
+  it('the Test: a tiny answer from Haiku, then the aliases; not signed in: refused', async () => {
+    expect((await new ClaudeCodeAdapter({ command: fake('ok') }).models()).map((m) => m.id)).toEqual(['opus', 'sonnet', 'haiku', 'fable']);
+    await expect(new ClaudeCodeAdapter({ command: fake('refuse') }).models()).rejects.toMatchObject({ kind: 'auth' });
+  });
+
+  it('the login’s status: signed in with its plan, or not; no program: said so', async () => {
+    expect(await claudeCodeStatus(fake('ok'))).toEqual({ loggedIn: true, plan: 'pro' });
+    expect(await claudeCodeStatus(fake('signed-out'))).toEqual({ loggedIn: false, plan: null });
+    expect((await failure(claudeCodeStatus(['/nonexistent/claude']))).message).toBe('Claude Code is not installed on this computer');
   });
 });

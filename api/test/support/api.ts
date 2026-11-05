@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { FastifyInstance } from 'fastify';
 import { expect } from 'vitest';
 import { buildApp } from '../../src/app.js';
@@ -5,6 +6,9 @@ import type { Clock } from '../../src/shared/time.js';
 import type { FakeCrm } from './fake-crm.js';
 import { FakeNotifier } from './fake-notifier.js';
 import { testDb } from './db.js';
+
+/** The stand-in for Claude Code (fake-claude.mjs), in one of its modes; the default: not signed in, so no test runs the real one. */
+export const FAKE_CLAUDE = (mode: string) => ['node', fileURLToPath(new URL('./fake-claude.mjs', import.meta.url)), mode];
 
 /** Fixed "now" for the tests: 2026-09-29 12:00 in Rome. */
 export const NOW = new Date('2026-09-29T10:00:00Z');
@@ -105,7 +109,7 @@ export async function makeApi(
     encryptionKey?: Buffer;
     hostAllowed?: (host: string) => Promise<boolean>;
     /** Fake AI providers (support/fake-ai.ts), and the hosts AI_PRIVATE_HOSTS would list. */
-    ai?: { fetch: typeof fetch; privateHosts?: string[] };
+    ai?: { fetch?: typeof fetch; privateHosts?: string[]; claudeCode?: string[] };
     /** The desktop's notifications (support/fake-notifier.ts); a new one, unread, when omitted. */
     notifier?: FakeNotifier;
   } = {},
@@ -122,6 +126,7 @@ export async function makeApi(
     notifier: opts.notifier ?? new FakeNotifier(),
     ai: {
       fetch: opts.ai?.fetch ?? (async () => Promise.reject(new TypeError('no network in tests'))),
+      claudeCode: opts.ai?.claudeCode ?? FAKE_CLAUDE('signed-out'),
       hostAllowed: opts.hostAllowed ?? (async () => true),
       privateHosts: opts.ai?.privateHosts ?? [],
     },
