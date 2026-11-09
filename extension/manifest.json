@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "vtiger-reader (prova)",
+  "version": "0.1.0",
+  "description": "A faster view of the vtiger CRM, over the page you already use.",
+  "permissions": ["storage", "scripting"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "vtiger-reader: settings"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}
