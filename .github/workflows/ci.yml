@@ -148,7 +148,7 @@ jobs:
         env:
           VTIGER_READER_DATA: ${{ runner.temp }}/vtiger-reader-smoke
         run: ./"vtiger reader.exe" --smoke
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtiger-reader-setup-${{ needs.version.outputs.version }}
           path: api/release/*.exe
