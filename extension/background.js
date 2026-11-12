@@ -27,7 +27,9 @@ async function registerCrm() {
     {
       id: SCRIPT_ID,
       matches: [pattern],
-      js: ["theme.js", "sample-data.js", "content.js"],
+      css: ["crm-look.css"],
+      js: ["crm-shadow.js", "crm-layout.js"],
+      allFrames: true,
       runAt: "document_idle",
       persistAcrossSessions: true,
     },

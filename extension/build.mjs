@@ -14,9 +14,9 @@ const files = [
   "background.js",
   "options.html",
   "options.js",
-  "theme.js",
-  "sample-data.js",
-  "content.js",
+  "crm-look.css",
+  "crm-shadow.js",
+  "crm-layout.js",
 ];
 
 // 1. The manifest must parse and list the files we copy.
@@ -39,5 +39,16 @@ for (const f of files) {
   await cp(join(here, f), join(out, f));
 }
 
+// 4. Zip of the same folder, to move it to Windows (unzip, then Load unpacked).
+const zip = join(here, "dist", `vtiger-reader-extension-${manifest.version}.zip`);
+await rm(zip, { force: true });
+const packed = spawnSync("python3", ["-m", "zipfile", "-c", zip, ...files.map((f) => join(out, f))], { encoding: "utf8" });
+if (packed.status !== 0) {
+  process.stderr.write(packed.stderr);
+  throw new Error("zip failed (needs python3)");
+}
+
 console.log("Build ready (load this folder as unpacked):");
 console.log(out);
+console.log("Zip (unzip on Windows, then load the folder unpacked):");
+console.log(zip);

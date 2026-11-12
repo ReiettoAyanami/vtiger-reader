@@ -1,0 +1,1340 @@
+/* vtiger-reader: lo stile degli applicativi di lenzi (viola scuro, Roboto Mono, bordi da 2px)
+   applicato agli elementi che il CRM già mostra. Solo stile: il DOM e il codice del CRM non cambiano.
+   Nessun colore del CRM: stati, SLA, pulsanti e indicatori usano la palette dell'app.
+   I selettori vengono dalle pagine reali (lista in vista Grid e Lista, sideview embed/minimal,
+   scheda completa) e sono verificati con un render di prova. Il corpo dei commenti sta in una
+   shadow root del CRM: lo scurisce crm-shadow.js. */
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap");
+
+:root {
+  --vtr-bg: #1f1f22;
+  --vtr-panel: #232327;
+  --vtr-row: #18181b;
+  --vtr-hover: #2b2b31;
+  --vtr-inset: #121214;
+  --vtr-line: #3d3d44;
+  --vtr-line-hi: #4a4a52;
+  --vtr-text: #e6e6ea;
+  --vtr-sub: #b9b9c1;
+  --vtr-muted: #8b8b95;
+  --vtr-accent: #d0bcff;
+  --vtr-on-accent: #381e72;
+  --vtr-soft: #4f378b;
+  --vtr-on-soft: #eaddff;
+  --vtr-teal: #004f58;
+  --vtr-on-teal: #97f0ff;
+  --vtr-second: #4a4458;
+  --vtr-on-second: #e8def8;
+  --vtr-third: #633b48;
+  --vtr-on-third: #ffd8e4;
+  --vtr-error: #ffb4ab;
+  --vtr-error-box: #93000a;
+  --vtr-on-error-box: #ffdad6;
+}
+
+/* ---------- base ---------- */
+html,
+body,
+#page,
+.main-container,
+.content-area {
+  background: var(--vtr-bg) !important;
+  color: var(--vtr-text) !important;
+}
+/* Roboto Mono ovunque, tranne le icone (che sono font a parte) */
+html body *:not(i):not(.fa):not([class*="fa-"]):not(.glyphicon):not([class*="vicon"]):not(.caret) {
+  font-family: "Roboto Mono", ui-monospace, monospace !important;
+}
+a {
+  color: var(--vtr-accent) !important;
+}
+
+/* ---------- barra in alto ---------- */
+.app-fixed-navbar,
+.global-nav,
+.app-nav,
+#navbar,
+#appnavigator,
+.app-navigator {
+  background: var(--vtr-panel) !important;
+  border-color: var(--vtr-line) !important;
+  color: var(--vtr-text) !important;
+}
+
+/* ---------- intestazione come nel canvas: una scheda su una riga sola ----------
+   le due righe del CRM (menu, ricerca, icone / titolo, pulsanti) diventano una riga con
+   display: contents sui contenitori intermedi: gli elementi restano quelli del CRM, solo
+   disposti diversamente. Il contenuto sotto scende di quanto serve (#page). */
+html body:not(.embed-mode) nav.app-fixed-navbar {
+  top: 16px !important;
+  left: 24px !important;
+  right: 24px !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  background: var(--vtr-panel) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav,
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav > .row,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav > .row,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-bar,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content {
+  display: contents !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .app-navigator-container,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb,
+html body:not(.embed-mode) nav.app-fixed-navbar .search-links-container,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content > div:has(> #appnav),
+html body:not(.embed-mode) nav.app-fixed-navbar #navbar {
+  float: none !important;
+  width: auto !important;
+  max-width: none !important;
+  flex: 0 0 auto;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+  top: auto !important;
+  height: auto !important;
+}
+/* ordine come nel canvas: menu, titolo, ricerca, pulsanti, icone */
+html body:not(.embed-mode) nav.app-fixed-navbar .app-navigator-container { order: 1; }
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb { order: 2; }
+html body:not(.embed-mode) nav.app-fixed-navbar .search-links-container { order: 3; flex: 1 1 auto !important; min-width: 200px; max-width: none !important; }
+/* lo spazio libero va alla ricerca, non a sinistra */
+html body:not(.embed-mode) nav.app-fixed-navbar {
+  justify-content: flex-start !important;
+}
+/* i clearfix di Bootstrap (::before/::after) dei contenitori diventati display: contents
+   finirebbero nella riga come elementi vuoti, ognuno con il suo spazio di 16px */
+html body:not(.embed-mode) nav.app-fixed-navbar::before,
+html body:not(.embed-mode) nav.app-fixed-navbar::after,
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav::before,
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav::after,
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav > .row::before,
+html body:not(.embed-mode) nav.app-fixed-navbar > .global-nav > .row::after,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav::before,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav::after,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav > .row::before,
+html body:not(.embed-mode) nav.app-fixed-navbar > .app-nav > .row::after,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-bar::before,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-bar::after,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content::before,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content::after {
+  display: none !important;
+  content: none !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content > div:has(> #appnav) { order: 4; }
+html body:not(.embed-mode) nav.app-fixed-navbar #navbar { order: 5; }
+/* via il logo, l'indicatore del modulo e la barra vuota al centro */
+html body:not(.embed-mode) nav.app-fixed-navbar .logo-container,
+html body:not(.embed-mode) nav.app-fixed-navbar .app-indicator-icon-container,
+html body:not(.embed-mode) nav.app-fixed-navbar .module-action-content > .alignMiddle {
+  display: none !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .app-navigator-container > .row {
+  display: flex !important;
+  align-items: center;
+  width: auto !important;
+  margin: 0 !important;
+}
+/* il menu occupa solo il suo pulsante, non le colonne di Bootstrap */
+html body:not(.embed-mode) nav.app-fixed-navbar .app-navigator-container > .row > * {
+  width: auto !important;
+  float: none !important;
+  padding: 0 !important;
+}
+/* titolo «Ticket» con il nome della lista sotto */
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb .module-title {
+  float: none !important;
+  margin: 0 !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
+  text-transform: none !important;
+  color: var(--vtr-accent) !important;
+  font-weight: 700 !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb .current-filter-name {
+  float: none !important;
+  margin: 2px 0 0 !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: auto !important;
+  max-width: 360px !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .module-breadcrumb .current-filter-name a {
+  max-width: 340px !important;
+}
+/* ricerca larga, come nel canvas */
+html body:not(.embed-mode) nav.app-fixed-navbar .search-links-container .search-link {
+  float: none !important;
+  width: 100% !important;
+  height: 40px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px !important;
+  background: var(--vtr-inset) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+  color: var(--vtr-muted) !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .search-link .keyword-input-wrapper {
+  flex: 1 1 auto;
+  margin: 0 !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar .search-link .keyword-input {
+  width: 100% !important;
+  border: 0 !important;
+  background: transparent !important;
+  height: 34px !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar #appnav {
+  display: flex !important;
+  gap: 8px;
+  float: none !important;
+  width: auto !important;
+  padding: 0 !important;
+}
+html body:not(.embed-mode) nav.app-fixed-navbar #appnav .btn-group {
+  display: flex !important;
+  gap: 8px;
+  float: none !important;
+}
+/* il contenuto parte sotto la scheda (16 + altezza + 16); solo dove c'è la barra (non nella sideview) */
+html body:not(.embed-mode):has(nav.app-fixed-navbar) #page {
+  padding-top: 104px !important;
+}
+
+/* barra del modulo (TICKET › lista) */
+.module-action-bar,
+.module-action-content {
+  background: var(--vtr-panel) !important;
+  border-color: var(--vtr-line) !important;
+}
+.module-action-bar .module-title {
+  color: var(--vtr-accent) !important;
+  font-weight: 700 !important;
+  font-size: 20px !important;
+}
+.module-action-bar .current-filter-name,
+.module-action-bar .current-filter-name a {
+  color: var(--vtr-sub) !important;
+  font-size: 13px !important;
+}
+.navbar.opencrmitalialinks {
+  background: transparent !important;
+}
+/* quadrato con l'icona del modulo, a sinistra di TICKET */
+html body .app-nav .app-indicator-icon-container {
+  background: var(--vtr-panel) !important;
+  border-right: 2px solid var(--vtr-line) !important;
+}
+html body .app-nav .app-indicator-icon {
+  color: var(--vtr-accent) !important;
+}
+
+/* ---------- sidebar delle liste: sullo sfondo della pagina, liste come pulsanti (canvas) ---------- */
+#sidebar-essentials,
+.sidebar-essentials,
+.sidebar-menu,
+.module-filters,
+.sidebar-container,
+.lists-menu-container,
+.menu-scroller,
+.list-menu-content {
+  background: var(--vtr-bg) !important;
+  border-color: transparent !important;
+  color: var(--vtr-text) !important;
+}
+.sidebar-essentials h4,
+.sidebar-essentials h5,
+.sidebar-header h4,
+.lists-header {
+  color: var(--vtr-muted) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+}
+.lists-menu {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 !important;
+}
+/* ogni lista è un pulsante su una riga sola: nome a sinistra, freccina del menu a destra */
+.lists-menu li.listViewFilter {
+  display: flex !important;
+  align-items: center;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  margin: 0 !important;
+  padding: 0 10px 0 0 !important;
+}
+.lists-menu li.listViewFilter:hover {
+  border-color: var(--vtr-muted) !important;
+}
+.lists-menu li a {
+  color: var(--vtr-text) !important;
+}
+.lists-menu li.listViewFilter > a {
+  display: block !important;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 7px 12px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lists-menu li.listViewFilter > .pull-right {
+  float: none !important;
+  margin-left: auto;
+  color: var(--vtr-muted) !important;
+}
+.lists-menu .listViewFilter.active {
+  background: var(--vtr-soft) !important;
+  border-color: var(--vtr-accent) !important;
+}
+.lists-menu .listViewFilter.active a {
+  color: var(--vtr-on-soft) !important;
+  font-weight: 700 !important;
+}
+/* maniglia per chiudere la sidebar */
+.essentials-toggle {
+  background-color: var(--vtr-panel) !important;
+  border-color: var(--vtr-line) !important;
+  color: var(--vtr-text) !important;
+}
+
+/* ---------- tabella della lista ---------- */
+#listview-table,
+.listview-table {
+  background: var(--vtr-panel) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+}
+#table-content,
+.table-container {
+  border-color: var(--vtr-line) !important;
+}
+.listview-table thead tr,
+.listview-table thead th,
+.listview-table thead td,
+.listview-table .listViewContentHeader,
+.listview-table .searchRow {
+  background: var(--vtr-inset) !important;
+  border-color: var(--vtr-line) !important;
+}
+/* intestazioni delle colonne: etichette piccole, maiuscole, grigie */
+.listview-table thead th,
+.listview-table thead th a,
+.listview-table .listViewContentHeaderValues {
+  color: var(--vtr-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+}
+.listview-table thead th a:hover {
+  color: var(--vtr-accent) !important;
+}
+.listview-table td,
+.listview-table th {
+  border-color: var(--vtr-line) !important;
+}
+/* Bootstrap (table-striped, table-hover) colora la riga: lo sfondo lo danno le celle */
+.listview-table tbody tr {
+  background-color: transparent !important;
+}
+.listview-table tbody td {
+  background-color: var(--vtr-row) !important;
+}
+/* righe pulite come nel canvas: Grid.css mette a ogni cella bordi bianchi su tutti i lati
+   (l'effetto «scatole») e opacità 0.9 alle righe */
+html body #listViewContent #listview-table tr.listViewEntries td,
+html body .listview-table tbody tr.listViewEntries td {
+  border: 0 !important;
+  border-top: 1px solid var(--vtr-line) !important;
+  padding: 10px 14px !important;
+  height: auto !important;
+  opacity: 1 !important;
+  vertical-align: middle !important;
+}
+html body #listViewContent #listview-table tr,
+html body #listViewContent #listview-table tr.listViewEntries td:hover {
+  opacity: 1 !important;
+}
+.listview-table tbody tr:hover td,
+html body #listViewContent #listview-table tr.listViewEntries:hover td {
+  background-color: var(--vtr-inset) !important;
+}
+html body .listview-table tbody tr.listViewEntries:hover td:first-child {
+  box-shadow: inset 4px 0 0 var(--vtr-accent) !important;
+}
+/* maniglie per allargare le colonne: invisibili, una linea viola solo quando ci passi sopra */
+html body #listViewContent .listViewContentHeader th .ui-resizable-handle,
+html body #listViewContent .listViewContentHeader:hover th .ui-resizable-handle {
+  border-left: 2px solid transparent !important;
+}
+html body #listViewContent .listViewContentHeader:hover th .ui-resizable-handle:hover,
+html body #listViewContent .listViewContentHeader:hover th .ui-resizable-handle:active {
+  border-left: 2px solid var(--vtr-accent) !important;
+}
+/* prima colonna (azioni): il tema disegna una linea chiara con un :before */
+html body #listViewContent #listview-table tr.listViewEntries td.listViewRecordActions:before {
+  border-right-color: transparent !important;
+  background: transparent !important;
+}
+/* colonne come nel canvas: titolo in grassetto, date in grigio */
+.listview-table td[data-name="ticket_title"] .value,
+.listview-table td[data-name="ticket_title"] a {
+  color: var(--vtr-text) !important;
+  font-weight: 700 !important;
+}
+.listview-table td[data-name="ticket_no"] .value,
+.listview-table td[data-name="ticket_no"] a {
+  color: var(--vtr-text) !important;
+}
+.listview-table td[data-name^="data_"] .value,
+.listview-table td[data-name$="time"] .value {
+  color: var(--vtr-sub) !important;
+}
+.listViewEntryValue,
+.listViewEntryValue .value,
+.listViewEntryValue .text,
+.listViewEntryValue .name {
+  color: var(--vtr-text) !important;
+}
+/* indicatore a sinistra della riga: base, ticket con la stella, passaggio del mouse */
+html body #listViewContent #listview-table tr.listViewEntries td.listViewRecordActions .marker {
+  background: var(--vtr-line) !important;
+  border-right-color: var(--vtr-panel) !important;
+}
+html body #listViewContent #listview-table tr.listViewEntries[data-starred="true"] td.listViewRecordActions .marker {
+  background: var(--vtr-accent) !important;
+}
+html body #listViewContent #listview-table tr.listViewEntries:hover td.listViewRecordActions .marker {
+  background: var(--vtr-soft) !important;
+}
+
+/* ---------- chip: tutti nella palette dell'app ---------- */
+/* base: chip con il bordo, senza il colore del CRM */
+.picklist-color,
+.fieldValue .value > span[style*="background-color"],
+.fieldValue .value > span[style*="border"],
+.fieldLabel .value > span[style*="background-color"] {
+  background: transparent !important;
+  color: var(--vtr-sub) !important;
+  border: 2px solid var(--vtr-muted) !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+/* intestazione della scheda: chip con il bordo, in maiuscolo come nel canvas */
+.fieldLabel .value > span[style*="background-color"] {
+  text-transform: uppercase;
+}
+/* nella lista le pillole sono piccole e non riempiono la cella, come nel canvas */
+.listview-table .picklist-color {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  padding: 2px 10px !important;
+  line-height: 1.5 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+/* Tipo intervento e Categoria nella lista: testo semplice, come nel canvas */
+.listview-table .picklist-color[class*="picklist-1151-"],
+.listview-table .picklist-color[class*="picklist-162-"] {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--vtr-sub) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  padding: 0 !important;
+}
+/* chip senza valore: niente bordo, altrimenti si vede una riga */
+.picklist-color:empty,
+.picklist-color[class$="-"] {
+  border: 0 !important;
+}
+
+/* stati del ticket, nella lista (classi) e nella scheda (valore del campo) */
+.picklist-color[class*="picklist-161-Open"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value="Open"]) .value > span {
+  background: transparent !important;
+  border-color: var(--vtr-accent) !important;
+  color: var(--vtr-accent) !important;
+}
+.picklist-color[class*="picklist-161-In-Progress"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value="In Progress"]) .value > span {
+  background: var(--vtr-teal) !important;
+  border-color: var(--vtr-teal) !important;
+  color: var(--vtr-on-teal) !important;
+}
+.picklist-color[class*="picklist-161-Wait-For-Response"],
+.picklist-color[class*="picklist-161-Attesa-"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value="Wait For Response"]) .value > span,
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value^="Attesa"]) .value > span {
+  background: var(--vtr-line) !important;
+  border-color: var(--vtr-line) !important;
+  color: var(--vtr-text) !important;
+}
+.picklist-color[class*="picklist-161-Attivit"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value^="Attivit"]) .value > span {
+  background: var(--vtr-soft) !important;
+  border-color: var(--vtr-soft) !important;
+  color: var(--vtr-on-soft) !important;
+}
+.picklist-color[class*="picklist-161-Closed"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value="Closed"]) .value > span {
+  background: var(--vtr-line) !important;
+  border-color: var(--vtr-line) !important;
+  color: var(--vtr-text) !important;
+}
+.picklist-color[class*="picklist-161-Annullato"],
+.fieldValue:has(input.fieldBasicData[data-name="ticketstatus"][data-value="Annullato"]) .value > span {
+  background: transparent !important;
+  border-color: var(--vtr-line) !important;
+  color: var(--vtr-muted) !important;
+  text-decoration: line-through;
+}
+
+/* SLA */
+.picklist-color[class*="picklist-1991-SLA-in-orario"],
+.fieldValue:has(input.fieldBasicData[data-name="stato_sla"][data-value="SLA in orario"]) .value > span {
+  background: transparent !important;
+  border-color: var(--vtr-teal) !important;
+  color: var(--vtr-on-teal) !important;
+}
+.picklist-color[class*="picklist-1991-SLA-in-scadenza"],
+.fieldValue:has(input.fieldBasicData[data-name="stato_sla"][data-value="SLA in scadenza"]) .value > span {
+  background: var(--vtr-third) !important;
+  border-color: var(--vtr-third) !important;
+  color: var(--vtr-on-third) !important;
+}
+.picklist-color[class*="picklist-1991-SLA-scaduto"],
+.fieldValue:has(input.fieldBasicData[data-name="stato_sla"][data-value="SLA scaduto"]) .value > span {
+  background: var(--vtr-error-box) !important;
+  border-color: var(--vtr-error-box) !important;
+  color: var(--vtr-on-error-box) !important;
+}
+
+/* ---------- pulsanti: tutti con il bordo, i colori del CRM spariscono ---------- */
+.btn-default,
+.btn-se7en,
+.btn-se7en-white,
+.btn-se7en-gray,
+.module-buttons,
+.wfdButtonTopbutton,
+.wfdGeneralButton,
+.fileUploadBtn,
+.btn.addButton[id$="LBL_IMPORT"] {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-muted) !important;
+  border-radius: 10px !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+.btn-default:hover,
+.btn-se7en:hover,
+.btn-se7en-white:hover,
+.btn-se7en-gray:hover,
+.module-buttons:hover,
+.wfdButtonTopbutton:hover,
+.wfdGeneralButton:hover,
+.fileUploadBtn:hover {
+  border-color: var(--vtr-accent) !important;
+  color: var(--vtr-accent) !important;
+}
+/* il tema forza i pulsanti della barra (.module-buttons.btn) e quello di ricerca della vista Grid
+   con !important e selettori forti: qui servono selettori più specifici */
+html body .module-buttons.btn:not(.addButton),
+html body #listViewContent tr.searchRow th.inline-search-btn button,
+html body #listViewContent tr.searchRow th.inline-search-btn button:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-muted) !important;
+  border-radius: 10px !important;
+}
+html body .module-buttons.btn:not(.addButton):hover,
+html body #listViewContent tr.searchRow th.inline-search-btn button:hover {
+  background-color: transparent !important;
+  color: var(--vtr-accent) !important;
+  border: 2px solid var(--vtr-accent) !important;
+}
+/* il tema colora il testo dentro i pulsanti (span): prende il colore del pulsante */
+.btn span:not(.caret):not(.badge):not(.numberCircle) {
+  color: inherit !important;
+}
+/* «Chiudi ticket» (rosso nel CRM): bordo e testo rosso tenue */
+.wfdButtonTopbutton[style*="#FF0000" i],
+.wfdButtonTopbutton[style*="#F00;" i] {
+  border-color: var(--vtr-error) !important;
+  color: var(--vtr-error) !important;
+}
+/* pulsanti principali: viola pieno */
+.btn-primary:not(.fileUploadBtn),
+.btn-success,
+.btn.addButton:not([id$="LBL_IMPORT"]),
+.detailViewButtoncontainer .wfdGeneralButton {
+  background: var(--vtr-accent) !important;
+  background-image: none !important;
+  color: var(--vtr-on-accent) !important;
+  border: 2px solid var(--vtr-accent) !important;
+  border-radius: 10px !important;
+  text-shadow: none !important;
+  font-weight: 700 !important;
+}
+/* pulsante «Ricerca» nella riga dei filtri (vista Lista): il tema lo forza in bianco con !important */
+html body .listview-table tr.searchRow th.inline-search-btn button,
+html body .listview-table tr.searchRow th.inline-search-btn button:hover {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-muted) !important;
+  border-radius: 10px !important;
+}
+/* pulsanti piccoli dentro i campi (es. «Riassegna») */
+html body .WFInlineButton {
+  background: transparent !important;
+  color: var(--vtr-accent) !important;
+  border: 2px solid var(--vtr-accent) !important;
+  border-radius: 999px !important;
+  height: auto !important;
+}
+/* contatori sulle schede */
+.numberCircle {
+  background: var(--vtr-accent) !important;
+  color: var(--vtr-on-accent) !important;
+  border: 0 !important;
+}
+
+/* ---------- campi ---------- */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]),
+select,
+textarea {
+  background: var(--vtr-inset) !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+}
+.select2-container .select2-choice,
+.select2-choice,
+.select2-container-multi .select2-choices {
+  background: var(--vtr-inset) !important;
+  background-image: none !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+}
+.select2-container .select2-chosen,
+.select2-chosen {
+  color: var(--vtr-text) !important;
+}
+.select2-drop,
+.select2-results {
+  background: var(--vtr-panel) !important;
+  color: var(--vtr-text) !important;
+}
+
+/* ---------- scheda e sideview: intestazione ---------- */
+.detailview-header-block {
+  background: var(--vtr-panel) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+  color: var(--vtr-text) !important;
+}
+.detailview-header {
+  background: transparent !important;
+  border: 0 !important;
+}
+/* icona del record (solo nell'intestazione, non gli avatar dei commenti):
+   il tema la colora con un selettore forte, quindi qui serve più specificità */
+html body .detailViewContainer .record-header .recordImage {
+  background: var(--vtr-inset) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+}
+html body .detailViewContainer .record-header .recordImage .name span,
+html body .detailViewContainer .record-header .recordImage i {
+  color: var(--vtr-accent) !important;
+  text-shadow: none !important;
+}
+.record-header .recordLabel,
+.record-header .name {
+  color: var(--vtr-text) !important;
+}
+/* come nel canvas: titolo grande, niente icona del record */
+.record-header .recordLabel,
+.record-header .recordLabel .name,
+.record-header .recordLabel span {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+}
+html body .detailViewContainer .record-header .recordImage {
+  display: none !important;
+}
+/* senza icona il titolo parte dal bordo (il tema riserva 90px) e va a capo invece di troncarsi */
+html body .record-header .recordBasicInfo {
+  padding-left: 0 !important;
+}
+html body .record-header .recordLabel,
+html body .record-header .recordLabel * {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+html body .record-header .recordBasicInfo h4,
+html body .record-header .recordLabel {
+  height: auto !important;
+  max-height: none !important;
+  margin-bottom: 6px !important;
+}
+#addTagTriggerer,
+.tagContainer .badge {
+  background: var(--vtr-soft) !important;
+  color: var(--vtr-on-soft) !important;
+}
+
+/* stati del ticket in alto: pillole al posto delle frecce */
+.breadcrumb-arrow {
+  background-color: transparent !important;
+}
+.breadcrumb-arrow li {
+  margin: 0 4px 6px 0 !important;
+}
+.breadcrumb-arrow li span:before,
+.breadcrumb-arrow li span:after,
+.breadcrumb-arrow li button:before,
+.breadcrumb-arrow li button:after {
+  display: none !important;
+}
+.breadcrumb-arrow li span,
+.breadcrumb-arrow li button {
+  background-color: var(--vtr-line) !important;
+  color: var(--vtr-sub) !important;
+  border-radius: 999px !important;
+  margin-left: 0 !important;
+  padding: 0 12px !important;
+  height: 28px !important;
+  line-height: 28px !important;
+  font-size: 12px !important;
+}
+.breadcrumb-arrow li span:not([class*="active"]):hover,
+.breadcrumb-arrow li button:not([class*="active"]):hover {
+  background-color: var(--vtr-line-hi) !important;
+}
+/* stato attuale: verde acqua con il bordo, come nel canvas */
+.breadcrumb-arrow li span[class*="active"],
+.breadcrumb-arrow li button[class*="active"] {
+  background-color: var(--vtr-teal) !important;
+  color: var(--vtr-on-teal) !important;
+  box-shadow: inset 0 0 0 2px var(--vtr-on-teal) !important;
+  font-weight: 700 !important;
+}
+
+/* ---------- schede (Riepilogo, Dettagli…): barra leggermente squadrata ---------- */
+.related-tabs .nav-tabs {
+  background: var(--vtr-inset) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+  padding: 4px !important;
+}
+.related-tabs .nav-tabs > li,
+.related-tabs .nav-tabs > li.active {
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 1px !important;
+}
+/* senza icone le undici schede stanno su una riga anche a 13px */
+.related-tabs .nav-tabs > li > a {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  color: var(--vtr-text) !important;
+  font-size: 13px !important;
+}
+.related-tabs .nav-tabs > li > a .tab-label,
+.related-tabs .nav-tabs > li > a strong {
+  color: var(--vtr-text) !important;
+  font-size: 13px !important;
+}
+/* schede senza icone, come nel canvas */
+.related-tabs .nav-tabs .tab-icon > span:not(.tab-label),
+.related-tabs .nav-tabs > li > a > i {
+  display: none !important;
+}
+.related-tabs .nav-tabs > li.active > a {
+  background: var(--vtr-accent) !important;
+}
+.related-tabs .nav-tabs > li.active > a,
+.related-tabs .nav-tabs > li.active > a .tab-label,
+.related-tabs .nav-tabs > li.active > a strong {
+  color: var(--vtr-on-accent) !important;
+}
+
+/* ---------- riquadri della scheda ---------- */
+.summaryView,
+.summaryWidgetContainer,
+.widgetContainer_comments,
+.widgetContainer_documents,
+.commentContainer,
+.recentComments,
+.related-tabs.row .details.row,
+.detailview-content .details.row .relatedHeader,
+.detailViewContainer .HistoryContainer,
+.relatedContainer,
+.relatedContents,
+.block,
+.blockData {
+  background: var(--vtr-panel) !important;
+  color: var(--vtr-text) !important;
+  border-color: var(--vtr-line) !important;
+}
+#keyFields.summaryView,
+.left-block > .summaryWidgetContainer,
+.middle-block > .summaryWidgetContainer,
+.block {
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+}
+.summaryWidgetContainer.noContent {
+  background: var(--vtr-inset) !important;
+  border: 2px dashed var(--vtr-line) !important;
+  border-radius: 10px !important;
+  color: var(--vtr-muted) !important;
+}
+.summaryViewHeader h4,
+.widget_header h4,
+.block h4,
+.relatedHeader h4 {
+  color: var(--vtr-text) !important;
+}
+.block hr,
+.blockData hr {
+  border-color: var(--vtr-line) !important;
+}
+
+/* etichette e valori dei campi, in Riepilogo e in Dettagli */
+html body .fieldLabel,
+html body td.fieldLabel,
+html body .blockData td,
+html body .blockData th,
+html body .summary-table td,
+html body .detailview-table td {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: var(--vtr-line) !important;
+}
+html body .fieldLabel,
+html body .fieldLabel label {
+  color: var(--vtr-muted) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+}
+html body .fieldValue,
+html body td.fieldValue {
+  background-color: transparent !important;
+  border-color: var(--vtr-line) !important;
+}
+.fieldValue .value {
+  color: var(--vtr-text) !important;
+}
+/* il CRM forza i link dei campi a blu con !important: serve un selettore più specifico */
+html body .fieldValue .value a {
+  color: var(--vtr-accent) !important;
+}
+
+/* ---------- commenti ---------- */
+.commentsBody,
+.recentCommentsBody,
+.commentDiv,
+.comment,
+.commentDetails,
+.commentInfoContent,
+.commentInfoContentBlock,
+.commentTextArea {
+  background: transparent !important;
+  color: var(--vtr-text) !important;
+  border-color: var(--vtr-line) !important;
+}
+.commentTitle {
+  background: var(--vtr-inset) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+}
+.singleComment {
+  background: var(--vtr-row) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+}
+.commentTitle label,
+.recentCommentsHeader span {
+  color: var(--vtr-sub) !important;
+}
+.commentTime,
+.commentModifiedTime {
+  color: var(--vtr-muted) !important;
+}
+/* autore del commento: grassetto, non un link blu (canvas) */
+html body .comment .creatorName,
+html body .comment .creatorName a {
+  color: var(--vtr-text) !important;
+  font-weight: 700 !important;
+}
+/* allegati del commento: pillole; quelli già mostrati dentro la mail sono attenuati */
+.commentAttachmentName {
+  display: inline-block !important;
+  margin: 6px 6px 0 0 !important;
+}
+.commentAttachmentName .filePreview {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 999px !important;
+  background: var(--vtr-inset) !important;
+}
+.commentAttachmentName .filePreview a,
+.commentAttachmentName .filePreview span {
+  color: var(--vtr-accent) !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.commentAttachmentName .filePreview .fa-paperclip {
+  color: var(--vtr-muted) !important;
+}
+.commentAttachmentName .filePreview[data-vtr-inline] {
+  opacity: 0.55;
+}
+/* avatar: il CRM dà un colore per utente, qui sono tutti uguali */
+html body .recordImage.commentInfoHeader {
+  background-color: var(--vtr-soft) !important;
+  border: 2px solid var(--vtr-accent) !important;
+}
+html body .recordImage.commentInfoHeader .name span,
+html body .recordImage.commentInfoHeader strong {
+  color: var(--vtr-on-soft) !important;
+}
+/* testo dei commenti fuori dalla shadow root (se c'è) */
+.commentInfoContent * {
+  color: var(--vtr-text) !important;
+  background-color: transparent !important;
+}
+.commentInfoContent a {
+  color: var(--vtr-accent) !important;
+}
+/* corpo dei commenti: crm-shadow.js lo scurisce dentro la shadow root e mette data-vtr-dark;
+   se lo script non è partito, resta un foglio chiaro per non avere testo nero su scuro */
+.commentInfoContent .shadow-dom-content[data-vtr-dark] {
+  background: transparent !important;
+  color: var(--vtr-text) !important;
+}
+.commentInfoContent .shadow-dom-content:not([data-vtr-dark]) {
+  background: #f4f4f6 !important;
+  color: #1f1f22 !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+}
+.commentInfoContent .shadow-dom-content:not([data-vtr-dark]) * {
+  color: #1f1f22 !important;
+}
+
+/* ---------- sideview: pannello che entra da destra ----------
+   la larghezza resta quella del CRM (si ridimensiona trascinando il bordo sinistro) */
+html body .EmbedQuickPreview .background {
+  background: #0a0a0c !important;
+  opacity: 0.5 !important;
+  animation: vtr-fade 0.2s ease-out both;
+}
+html body .EmbedQuickPreview .wrapper {
+  background: var(--vtr-bg) !important;
+  border: 0 !important;
+  border-left: 2px solid var(--vtr-line) !important;
+  border-radius: 16px 0 0 16px !important;
+  box-shadow: -28px 0 56px rgba(0, 0, 0, 0.5) !important;
+  animation: vtr-slide 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+html body .EmbedQuickPreview .wrapper iframe {
+  background: var(--vtr-bg) !important;
+  border-radius: 16px 0 0 16px;
+}
+/* chiudi e apri: pulsanti veri, fuori dal pannello, sul lato sinistro */
+html body .EmbedQuickPreview .wrapper .close,
+html body .EmbedQuickPreview .wrapper .open {
+  left: -52px !important;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  opacity: 1 !important;
+  color: var(--vtr-text) !important;
+  background: var(--vtr-panel) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 12px !important;
+  text-shadow: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+html body .EmbedQuickPreview .wrapper .close {
+  top: 16px !important;
+}
+html body .EmbedQuickPreview .wrapper .open {
+  top: 64px !important;
+}
+html body .EmbedQuickPreview .wrapper .close:hover,
+html body .EmbedQuickPreview .wrapper .open:hover {
+  color: var(--vtr-accent) !important;
+  border-color: var(--vtr-accent) !important;
+}
+/* bordo per il ridimensionamento: una linea viola quando ci passi sopra */
+html body .EmbedQuickPreview .ui-resizable-w {
+  width: 10px !important;
+  left: -5px !important;
+  cursor: ew-resize;
+}
+html body .EmbedQuickPreview .ui-resizable-w:hover {
+  background: linear-gradient(to right, transparent 4px, var(--vtr-accent) 4px, var(--vtr-accent) 6px, transparent 6px);
+}
+@keyframes vtr-slide {
+  from {
+    transform: translateX(48px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes vtr-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body .EmbedQuickPreview .wrapper,
+  html body .EmbedQuickPreview .background {
+    animation: none !important;
+  }
+}
+
+/* immagini delle mail ricomposte da crm-shadow.js: non devono uscire dal riquadro */
+.commentAttachments {
+  border-top: 2px solid var(--vtr-line) !important;
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+}
+
+/* ---------- ombre: lo stile dell'app è piatto, con bordi da 2px ----------
+   il tema ha decine di ombre chiare (aloni grigi, riflessi bianchi, focus azzurri, ombre del
+   testo): via tutte; un'ombra scura solo per ciò che galleggia (menu, popup, finestre).
+   Le ombre volute qui sotto (barra della riga aperta, stato attivo, sideview) hanno
+   selettori più specifici e restano. */
+html body *,
+html body *::before,
+html body *::after {
+  text-shadow: none !important;
+}
+html body * {
+  box-shadow: none !important;
+}
+html body input:focus,
+html body select:focus,
+html body textarea:focus,
+html body .select2-container-active .select2-choice {
+  border-color: var(--vtr-accent) !important;
+  outline: none !important;
+}
+html body .btn:focus-visible,
+html body a:focus-visible {
+  outline: 2px solid var(--vtr-accent) !important;
+  outline-offset: 2px;
+}
+
+/* ---------- menu, popup e finestre: riquadri scuri ---------- */
+html body .dropdown-menu,
+html body .popover,
+html body .webui-popover,
+html body .select2-drop,
+html body .ui-autocomplete,
+html body .qtip,
+html body .daterangepicker,
+html body .modal-content,
+html body .ui-dialog {
+  background: var(--vtr-panel) !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
+}
+html body .dropdown-menu {
+  padding: 6px !important;
+}
+html body .dropdown-menu > li > a,
+html body .dropdown-menu a,
+html body .popover .listmenu a,
+html body .webui-popover a {
+  color: var(--vtr-text) !important;
+  background: transparent !important;
+  border-radius: 6px;
+}
+html body .dropdown-menu > li > a:hover,
+html body .dropdown-menu > li > a:focus,
+html body .popover .listmenu li a:hover,
+html body .webui-popover .listmenu li a:hover {
+  background: var(--vtr-soft) !important;
+  color: var(--vtr-on-soft) !important;
+}
+html body .dropdown-menu .divider {
+  background-color: var(--vtr-line) !important;
+}
+html body .dropdown-header {
+  color: var(--vtr-muted) !important;
+}
+html body .popover-title {
+  background: var(--vtr-inset) !important;
+  border-bottom: 2px solid var(--vtr-line) !important;
+  color: var(--vtr-text) !important;
+}
+html body .popover-content,
+html body .webui-popover-content,
+html body .webui-popover-inner {
+  background: transparent !important;
+  color: var(--vtr-text) !important;
+}
+html body .popover .listmenu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+html body .popover .listmenu li a {
+  display: block;
+  padding: 6px 10px;
+}
+/* frecce dei popover: stesso colore del riquadro */
+html body .popover.top > .arrow { border-top-color: var(--vtr-line) !important; }
+html body .popover.top > .arrow:after { border-top-color: var(--vtr-panel) !important; }
+html body .popover.bottom > .arrow { border-bottom-color: var(--vtr-line) !important; }
+html body .popover.bottom > .arrow:after { border-bottom-color: var(--vtr-panel) !important; }
+html body .popover.left > .arrow { border-left-color: var(--vtr-line) !important; }
+html body .popover.left > .arrow:after { border-left-color: var(--vtr-panel) !important; }
+html body .popover.right > .arrow { border-right-color: var(--vtr-line) !important; }
+html body .popover.right > .arrow:after { border-right-color: var(--vtr-panel) !important; }
+html body .webui-popover .webui-arrow {
+  display: none !important;
+}
+/* menu rapido (il pulsante con le tre righe) */
+html body .ITMdropdownmenu,
+html body .ITMdropdownmenu * {
+  background-color: transparent !important;
+  color: var(--vtr-text) !important;
+}
+html body .ITMdropdownmenu {
+  background: var(--vtr-panel) !important;
+}
+html body .ITMdropdownmenu h4 {
+  color: var(--vtr-muted) !important;
+}
+html body .ITMdropdownmenu .ITMMenuSelect a:hover {
+  color: var(--vtr-accent) !important;
+}
+
+/* ---------- mini menu di modifica ---------- */
+/* menu «⋮» delle righe e icone delle azioni */
+html body .listview-table .table-actions .icon,
+html body .listview-table .table-actions .action,
+html body .listview-table .table-actions .fa {
+  color: var(--vtr-muted) !important;
+}
+html body .listview-table .table-actions .action:hover,
+html body .listview-table .table-actions .fa:hover {
+  color: var(--vtr-accent) !important;
+}
+/* modifica di un campo nella scheda: ✓ salva e ✗ annulla */
+html body .input-group-addon,
+html body .inlineAjaxSave,
+html body .inlineAjaxCancel {
+  background: var(--vtr-inset) !important;
+  color: var(--vtr-text) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-radius: 10px !important;
+}
+html body .input-save-wrap {
+  display: inline-flex !important;
+  gap: 6px;
+  margin-left: 6px;
+}
+html body .inlineAjaxSave:hover {
+  background: var(--vtr-teal) !important;
+  border-color: var(--vtr-teal) !important;
+  color: var(--vtr-on-teal) !important;
+}
+html body .inlineAjaxCancel:hover {
+  border-color: var(--vtr-error) !important;
+  color: var(--vtr-error) !important;
+}
+html body .fieldValue .action .editAction,
+html body .fieldLabel .action .editAction {
+  color: var(--vtr-muted) !important;
+}
+html body .fieldValue .action .editAction:hover {
+  color: var(--vtr-accent) !important;
+}
+/* pulsanti che cancellano (Elimina, Annulla) */
+html body .btn-danger {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--vtr-error) !important;
+  border: 2px solid var(--vtr-error) !important;
+  border-radius: 10px !important;
+}
+
+/* ---------- linguetta per aprire e chiudere la sidebar ---------- */
+html body .essentials-toggle {
+  width: 22px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: var(--vtr-panel) !important;
+  border: 2px solid var(--vtr-line) !important;
+  border-left: 0 !important;
+  border-radius: 0 10px 10px 0 !important;
+  color: var(--vtr-muted) !important;
+  cursor: pointer;
+}
+html body .essentials-toggle:hover {
+  border-color: var(--vtr-accent) !important;
+  color: var(--vtr-accent) !important;
+}
+/* il tema disegna la freccia con uno sprite: la rifaccio con l'icona */
+html body .essentials-toggle .essentials-toggle-marker {
+  background: none !important;
+  width: auto !important;
+  height: auto !important;
+  font-family: FontAwesome !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  color: inherit !important;
+}
+html body .essentials-toggle .fa-chevron-left::before {
+  content: "\f053" !important;
+}
+html body .essentials-toggle .fa-chevron-right::before {
+  content: "\f054" !important;
+}
+
+/* ---------- elementi di crm-layout.js (come nel canvas) ---------- */
+/* filtri a pillole sopra la tabella */
+.vtr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.vtr-chip {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--vtr-line);
+  background: transparent;
+  color: var(--vtr-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.vtr-chip:hover {
+  border-color: var(--vtr-muted);
+}
+.vtr-chip:focus-visible {
+  outline: 2px solid var(--vtr-accent);
+  outline-offset: 2px;
+}
+.vtr-chip[aria-pressed="true"] {
+  background: var(--vtr-soft);
+  border-color: var(--vtr-accent);
+  color: var(--vtr-on-soft);
+  font-weight: 700;
+}
+html body .listview-table tr.listViewEntries[data-vtr-hidden],
+html body .listview-table [data-vtr-col-hidden] {
+  display: none !important;
+}
+/* contatto sotto il titolo */
+.vtr-under {
+  color: var(--vtr-muted);
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* riga aperta nella sideview: barra viola e numero viola, come nel canvas */
+html body .listview-table tbody tr.listViewEntries[data-vtr-open] td {
+  background-color: var(--vtr-inset) !important;
+}
+html body .listview-table tbody tr.listViewEntries[data-vtr-open] td:first-child {
+  box-shadow: inset 4px 0 0 var(--vtr-accent) !important;
+}
+html body .listview-table tbody tr.listViewEntries[data-vtr-open] td[data-name="ticket_no"] .value,
+html body .listview-table tbody tr.listViewEntries[data-vtr-open] td[data-name="ticket_no"] a {
+  color: var(--vtr-accent) !important;
+  font-weight: 700 !important;
+}
+/* numero del ticket sopra il titolo della scheda */
+.vtr-ticketno {
+  color: var(--vtr-sub);
+  font-size: 12px;
+  margin: 0 0 2px;
+}
+
+/* interruttore «Roll up» */
+.bootstrap-switch {
+  background: var(--vtr-inset) !important;
+  border-color: var(--vtr-line) !important;
+}
+.bootstrap-switch .bootstrap-switch-handle-on,
+.bootstrap-switch .bootstrap-switch-handle-off,
+.bootstrap-switch .bootstrap-switch-label {
+  background: var(--vtr-line) !important;
+  background-image: none !important;
+  color: var(--vtr-text) !important;
+  text-shadow: none !important;
+}
